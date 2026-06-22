@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api.routes import auth, health
+from app.api.routes import auth, health, imports, mappings, sources, students
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging
@@ -12,3 +12,7 @@ register_exception_handlers(app)
 
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(sources.router)
+app.include_router(mappings.router)
+app.include_router(imports.router)
+app.include_router(students.router)
