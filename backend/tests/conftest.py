@@ -1,14 +1,41 @@
+import importlib
 import os
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from testcontainers.postgres import PostgresContainer
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
+
+_ALL_TABLES = (
+    "users",
+    "audit_log",
+    "tenants",
+    "source_systems",
+    "column_mappings",
+    "import_batches",
+    "raw_files",
+    "raw_records",
+    "staging_records",
+    "entity_identity_map",
+    "merge_review_items",
+    "data_conflicts",
+    "departments",
+    "programmes",
+    "courses",
+    "faculty",
+    "students",
+    "enrollment",
+    "attendance",
+    "internal_marks",
+    "fees",
+    "semester_results",
+)
 
 
 @pytest.fixture(scope="session")
@@ -66,7 +93,20 @@ def superuser_connection(migrated_db):
     engine = create_engine(migrated_db["superuser_url"])
     conn = engine.connect()
     yield conn
-    conn.execute(text("TRUNCATE users, audit_log, tenants CASCADE"))
+    conn.execute(text(f"TRUNCATE {', '.join(_ALL_TABLES)} CASCADE"))
     conn.commit()
     conn.close()
     engine.dispose()
+
+
+@pytest.fixture()
+def client(migrated_db):
+    """Imports the app only after migrated_db has set DATABASE_URL etc. in the
+    environment, since app.core.config.Settings() is read once at import time."""
+    import app.core.config as config_module
+
+    importlib.reload(config_module)
+    import app.main as main_module
+
+    importlib.reload(main_module)
+    return TestClient(main_module.app)

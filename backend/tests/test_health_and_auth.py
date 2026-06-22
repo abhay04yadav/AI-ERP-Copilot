@@ -1,22 +1,3 @@
-import importlib
-
-import pytest
-from fastapi.testclient import TestClient
-
-
-@pytest.fixture()
-def client(migrated_db):
-    """Imports the app only after migrated_db has set DATABASE_URL etc. in the
-    environment, since app.core.config.Settings() is read once at import time."""
-    import app.core.config as config_module
-
-    importlib.reload(config_module)
-    import app.main as main_module
-
-    importlib.reload(main_module)
-    return TestClient(main_module.app)
-
-
 def test_health_liveness(client):
     response = client.get("/health")
     assert response.status_code == 200
