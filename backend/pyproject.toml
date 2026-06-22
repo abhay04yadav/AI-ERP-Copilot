@@ -16,6 +16,7 @@ dependencies = [
     "pyjwt==2.10.1",
     "argon2-cffi==23.1.0",
     "python-multipart==0.0.18",
+    "rapidfuzz==3.10.1",
 ]
 
 [project.optional-dependencies]
