@@ -42,6 +42,7 @@ from app.services.ingestion.parsing import parse_raw_records, store_raw_file
 from app.services.ingestion.reconciliation.anomalies import detect_anomalies
 from app.services.ingestion.reconciliation.completeness import compute_completeness
 from app.services.ingestion.resolution.resolver import resolve_student
+from app.services.risk.engine import recompute_for_import_batch
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,26 @@ def run_pipeline(tenant_id: UUID, import_batch_id: UUID, content: bytes, actor_u
     except Exception as exc:  # noqa: BLE001 - any unhandled failure marks the batch FAILED
         logger.exception("Ingestion pipeline failed for import_batch_id=%s", import_batch_id)
         _mark_failed(tenant_id, import_batch_id, str(exc))
+        return
+    finally:
+        session.close()
+
+    _phase_risk_recompute(tenant_id, import_batch_id)
+
+
+def _phase_risk_recompute(tenant_id: UUID, import_batch_id: UUID) -> None:
+    """Student Success Engine hook (spec §10.3). Runs in its own session/
+    transaction, strictly after the import's own session has committed and
+    closed. A failure here must NOT flip the already-successful import to
+    FAILED -- it's logged and otherwise swallowed; the import stays
+    COMPLETED. The risk module imports nothing from the pipeline; this is the
+    only call site, kept one-directional."""
+    session = SessionLocal()
+    try:
+        with session.begin():
+            recompute_for_import_batch(session, tenant_id, import_batch_id)
+    except Exception:  # noqa: BLE001 - risk recompute failure must not affect import status
+        logger.exception("Risk recompute failed for import_batch_id=%s (import already COMPLETED)", import_batch_id)
     finally:
         session.close()
 
