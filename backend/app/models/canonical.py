@@ -136,6 +136,12 @@ class InternalMark(PKMixin, TenantMixin, TimestampMixin, SoftDeleteMixin, Proven
     attempt: Mapped[int] = mapped_column(nullable=False, default=1, server_default=text("1"))
     max_marks: Mapped[Decimal] = mapped_column(nullable=False)
     obtained: Mapped[Decimal] = mapped_column(nullable=False)
+    assessment_date: Mapped[date | None] = mapped_column(nullable=True)
+    """Optional (Phase 2 hardening CHANGE 1): when a source provides a real
+    assessment date, the risk engine's academic-decline signal orders by it
+    instead of created_at (which is import time, not assessment time, for a
+    bulk-imported term's marks). Absent for any row -> ordering falls back to
+    created_at exactly as before, so this column is purely additive."""
 
 
 class Fee(PKMixin, TenantMixin, TimestampMixin, SoftDeleteMixin, ProvenanceMixin, Base):

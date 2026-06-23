@@ -54,11 +54,14 @@ def _attendance(conn, tenant_id, student_id, course_id, class_date, status, sess
     conn.commit()
 
 
-def _mark(conn, tenant_id, student_id, course_id, assessment_type, attempt, max_marks, obtained, created_at):
+def _mark(
+    conn, tenant_id, student_id, course_id, assessment_type, attempt, max_marks, obtained, created_at,
+    assessment_date=None,
+):
     conn.execute(
         text(
             "INSERT INTO internal_marks (tenant_id, student_id, course_id, assessment_type, attempt, max_marks, "
-            "obtained, created_at) VALUES (:t, :s, :c, :a, :att, :mx, :ob, :ca)"
+            "obtained, created_at, assessment_date) VALUES (:t, :s, :c, :a, :att, :mx, :ob, :ca, :ad)"
         ),
         {
             "t": tenant_id,
@@ -190,13 +193,56 @@ def test_academic_latest_baseline_and_failing_count(superuser_connection, app_se
         session.close()
 
 
+def test_academic_ordering_uses_assessment_date_when_present(superuser_connection, app_session_factory):
+    """Phase 2 hardening CHANGE 1: created_at order is the opposite of
+    assessment_date order -- the engine must follow assessment_date."""
+    tenant_id = _tenant(superuser_connection, "sig-g")
+    student_id = _student(superuser_connection, tenant_id, "SIGG001")
+    course = _course(superuser_connection, tenant_id, "CS501")
+
+    # created_at ascending: CT1, CT2, CT3 -- but assessment_date is reversed.
+    _mark(superuser_connection, tenant_id, student_id, course, "CT1", 1, 100, 30, "2026-01-01 09:00:00", "2026-03-01")
+    _mark(superuser_connection, tenant_id, student_id, course, "CT2", 1, 100, 50, "2026-01-02 09:00:00", "2026-02-01")
+    _mark(superuser_connection, tenant_id, student_id, course, "CT3", 1, 100, 45, "2026-01-03 09:00:00", "2026-01-01")
+
+    session = _app_session(app_session_factory, tenant_id)
+    try:
+        result = compute_academic_signals(session, tenant_id, [student_id], CONFIG)[student_id]
+        # By assessment_date, CT1 (30%, dated 2026-03-01) is latest; baseline is mean(45, 50).
+        assert result["academic_latest_pct"] == 30.0
+        assert result["academic_baseline_pct"] == 47.5
+    finally:
+        session.close()
+
+
+def test_academic_ordering_falls_back_to_created_at_when_no_assessment_date(superuser_connection, app_session_factory):
+    """Phase 2 hardening CHANGE 1: with no assessment_date anywhere, the
+    pre-CHANGE-1 behaviour (order by created_at) is unchanged."""
+    tenant_id = _tenant(superuser_connection, "sig-h")
+    student_id = _student(superuser_connection, tenant_id, "SIGH001")
+    course = _course(superuser_connection, tenant_id, "CS502")
+
+    _mark(superuser_connection, tenant_id, student_id, course, "CT1", 1, 100, 30, "2026-01-01 09:00:00")
+    _mark(superuser_connection, tenant_id, student_id, course, "CT2", 1, 100, 50, "2026-02-01 09:00:00")
+    _mark(superuser_connection, tenant_id, student_id, course, "CT3", 1, 100, 45, "2026-03-01 09:00:00")
+
+    session = _app_session(app_session_factory, tenant_id)
+    try:
+        result = compute_academic_signals(session, tenant_id, [student_id], CONFIG)[student_id]
+        assert result["academic_latest_pct"] == 45.0  # latest by created_at, exactly as before
+        assert result["academic_baseline_pct"] == 40.0
+    finally:
+        session.close()
+
+
 def test_fee_max_overdue_days_ignores_fully_paid(superuser_connection, app_session_factory):
     tenant_id = _tenant(superuser_connection, "sig-e")
     student_id = _student(superuser_connection, tenant_id, "SIGE001")
 
     today = date.today()
     _fee(superuser_connection, tenant_id, student_id, "T1", "tuition", 1000, 0, today - timedelta(days=40))
-    _fee(superuser_connection, tenant_id, student_id, "T1", "library", 200, 200, today - timedelta(days=5))  # fully paid
+    # fully paid
+    _fee(superuser_connection, tenant_id, student_id, "T1", "library", 200, 200, today - timedelta(days=5))
 
     session = _app_session(app_session_factory, tenant_id)
     try:

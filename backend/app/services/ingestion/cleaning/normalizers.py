@@ -228,3 +228,18 @@ def clean_payload(entity_type: str, mapped_payload: dict) -> dict:
     return {
         field: field_normalizers.get(field, normalize_nullish)(value) for field, value in mapped_payload.items()
     }
+
+
+def to_jsonable(payload: dict) -> dict:
+    """Converts Decimal values (normalize_number's output, e.g.
+    internal_mark's max_marks/obtained, fee's amount_due/amount_paid) to
+    float so the payload can be stored in a JSONB column -- psycopg's JSON
+    encoder doesn't know how to serialize Decimal.
+
+    Applied only at the JSONB-storage boundary (pipeline.py, when
+    constructing StagingRecord.cleaned_payload), never to the dict
+    validators.py::validate_record sees: its range checks
+    (`max_marks <= 0`, `obtained > max_marks`, ...) need Decimal/numeric
+    types, not a JSON-safe copy.
+    """
+    return {field: float(value) if isinstance(value, Decimal) else value for field, value in payload.items()}

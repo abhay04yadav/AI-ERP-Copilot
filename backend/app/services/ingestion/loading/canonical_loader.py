@@ -368,6 +368,8 @@ def upsert_internal_mark(session: Session, tenant_id: UUID, cleaned: dict, prove
                 existing_source_id=existing.source_system_id,
                 incoming_source_id=provenance["source_system_id"],
             )
+        if cleaned.get("assessment_date"):
+            existing.assessment_date = date.fromisoformat(cleaned["assessment_date"])
         _apply_provenance(existing, **provenance)
         return existing
 
@@ -379,6 +381,7 @@ def upsert_internal_mark(session: Session, tenant_id: UUID, cleaned: dict, prove
         attempt=attempt,
         max_marks=cleaned["max_marks"],
         obtained=cleaned["obtained"],
+        assessment_date=date.fromisoformat(cleaned["assessment_date"]) if cleaned.get("assessment_date") else None,
     )
     _apply_provenance(mark, **provenance)
     session.add(mark)

@@ -327,3 +327,81 @@ def test_student_missing_roll_no_is_quarantined(client, superuser_connection):
 
     count = superuser_connection.execute(text("SELECT count(*) FROM students")).scalar_one()
     assert count == 0
+
+
+INTERNAL_MARK_MAPPING_WITH_DATE = {
+    "roll_no": "Roll No",
+    "course_code": "Course Code",
+    "assessment_type": "Assessment Type",
+    "max_marks": "Max Marks",
+    "obtained": "Obtained",
+    "assessment_date": "Assessment Date",
+}
+INTERNAL_MARK_MAPPING_WITHOUT_DATE = {
+    k: v for k, v in INTERNAL_MARK_MAPPING_WITH_DATE.items() if k != "assessment_date"
+}
+
+
+def _seed_student_and_course(superuser_connection, tenant_id, roll_no: str, course_code: str):
+    course_id = superuser_connection.execute(
+        text("INSERT INTO courses (tenant_id, code, name) VALUES (:t, :c, :c) RETURNING id"),
+        {"t": tenant_id, "c": course_code},
+    ).scalar_one()
+    superuser_connection.execute(
+        text("INSERT INTO students (tenant_id, canonical_roll_no, name) VALUES (:t, :r, :r)"),
+        {"t": tenant_id, "r": roll_no},
+    )
+    superuser_connection.commit()
+    return course_id
+
+
+def test_internal_mark_assessment_date_lands_on_canonical_row_when_mapped(client, superuser_connection):
+    """Phase 2 hardening CHANGE 1c: assessment_date is an optional mapping
+    target -- when a college maps it, the canonical row carries it."""
+    token = _register(client, "mark-with-date-college")
+    tenant_id = superuser_connection.execute(
+        text("SELECT id FROM tenants WHERE slug = 'mark-with-date-college'")
+    ).scalar_one()
+    _seed_student_and_course(superuser_connection, tenant_id, "MARK001", "CS101")
+
+    source_id = _create_source(client, token)
+    _create_mapping(client, token, source_id, "internal_mark", INTERNAL_MARK_MAPPING_WITH_DATE)
+
+    content = (
+        b"Roll No,Course Code,Assessment Type,Max Marks,Obtained,Assessment Date\n"
+        b"MARK001,CS101,CT1,100,72,15/03/2026\n"
+    )
+    batch_id = _upload(client, token, source_id, "internal_mark", "marks.csv", content)
+    body = _get_batch(client, token, batch_id)
+    assert body["status"] == "COMPLETED"
+    assert body["row_count_loaded"] == 1
+
+    assessment_date = superuser_connection.execute(
+        text("SELECT assessment_date FROM internal_marks WHERE tenant_id = :t"), {"t": tenant_id}
+    ).scalar_one()
+    assert str(assessment_date) == "2026-03-15"
+
+
+def test_internal_mark_without_assessment_date_mapping_loads_fine_with_null(client, superuser_connection):
+    """Phase 2 hardening CHANGE 1c: a college that never maps assessment_date
+    is unaffected -- the row loads exactly as before, with assessment_date
+    null."""
+    token = _register(client, "mark-no-date-college")
+    tenant_id = superuser_connection.execute(
+        text("SELECT id FROM tenants WHERE slug = 'mark-no-date-college'")
+    ).scalar_one()
+    _seed_student_and_course(superuser_connection, tenant_id, "MARK002", "CS101")
+
+    source_id = _create_source(client, token)
+    _create_mapping(client, token, source_id, "internal_mark", INTERNAL_MARK_MAPPING_WITHOUT_DATE)
+
+    content = b"Roll No,Course Code,Assessment Type,Max Marks,Obtained\nMARK002,CS101,CT1,100,72\n"
+    batch_id = _upload(client, token, source_id, "internal_mark", "marks.csv", content)
+    body = _get_batch(client, token, batch_id)
+    assert body["status"] == "COMPLETED"
+    assert body["row_count_loaded"] == 1
+
+    assessment_date = superuser_connection.execute(
+        text("SELECT assessment_date FROM internal_marks WHERE tenant_id = :t"), {"t": tenant_id}
+    ).scalar_one()
+    assert assessment_date is None

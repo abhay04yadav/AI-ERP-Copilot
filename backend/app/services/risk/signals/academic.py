@@ -1,19 +1,24 @@
 """Bulk academic signal computation (spec §5.2). One ordered bulk query for
 the whole batch of target students.
 
-internal_marks (Phase 1, locked schema) has no term/sequence column to order
-by, so created_at is used as the stable proxy for "most recent" — the only
-deterministic ordering key the canonical schema actually provides (decision
-recorded in CHANGELOG.md).
+Ordering key (Phase 2 hardening CHANGE 1): internal_marks.assessment_date is
+optional (a college may bulk-import a whole term's marks in one file, where
+created_at is import time, not real assessment order). "Latest"/"baseline"
+order by COALESCE(assessment_date, created_at::date), tiebroken by
+created_at then id. When no row has assessment_date set, this collapses to
+exactly the pre-CHANGE-1 ordering (created_at, id) -- no regression for the
+common case where the source never provided a date.
 """
 
 from collections import defaultdict
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import Date, cast, func, select
 from sqlalchemy.orm import Session
 
 from app.models.canonical import Course, InternalMark
+
+_effective_assessment_date = func.coalesce(InternalMark.assessment_date, cast(InternalMark.created_at, Date))
 
 
 def compute_academic_signals(
@@ -42,7 +47,7 @@ def compute_academic_signals(
             InternalMark.is_deleted.is_(False),
             InternalMark.max_marks > 0,
         )
-        .order_by(InternalMark.student_id, InternalMark.created_at, InternalMark.id)
+        .order_by(InternalMark.student_id, _effective_assessment_date, InternalMark.created_at, InternalMark.id)
     ).all()
 
     by_student: dict[UUID, list] = defaultdict(list)

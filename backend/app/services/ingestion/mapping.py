@@ -23,7 +23,15 @@ ENTITY_CANONICAL_FIELDS: dict[str, list[str]] = {
     "course": ["code", "name", "programme_code"],
     "enrollment": ["roll_no", "course_code", "academic_year", "status"],
     "attendance": ["roll_no", "course_code", "class_date", "session_no", "status"],
-    "internal_mark": ["roll_no", "course_code", "assessment_type", "attempt", "max_marks", "obtained"],
+    "internal_mark": [
+        "roll_no",
+        "course_code",
+        "assessment_type",
+        "attempt",
+        "max_marks",
+        "obtained",
+        "assessment_date",
+    ],
     "fee": ["roll_no", "term", "fee_head", "amount_due", "amount_paid", "due_date", "paid_date", "status"],
 }
 
