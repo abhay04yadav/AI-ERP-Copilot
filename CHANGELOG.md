@@ -177,3 +177,154 @@ normalizers (`test_normalizers.py`). 34/34 passing. Also manually verified
 end-to-end against the local Docker Postgres: messy-CSV upload → quarantine →
 canonical load → Student 360 read → idempotent re-import → cross-source
 conflict, all behaving as designed.
+
+---
+
+# CHANGELOG — vs IMPLEMENTATION_SPEC_Phase2_StudentSuccessEngine.md
+
+## Phase 2 — Student Success Engine (complete)
+
+Built per spec exactly, in the §12 build order: `risk_configs` /
+`risk_assessments` / `risk_findings` / `interventions` /
+`intervention_outcomes` / `risk_alerts` / `faculty_scopes` models + one
+Alembic migration (RLS + grants on all seven, audit hooks on the five
+mutable/security-relevant ones); config seeding; bulk attendance/academic/fee
+signal computation; the five rules + scoring/tiering + `RulesRiskEvaluator`
+behind the `RiskEvaluator` seam; the recompute engine
+(`recompute_for_students`/`_for_tenant`/`_for_import_batch`) with bulk signal
+reads, per-student savepoint isolation, and idempotent persist; DPDP minor-
+status computation + the parent_contact consent gate; the one-line pipeline
+hook; intervention lifecycle + alert generation services; faculty-scope
+resolution; and the full `/risk` API surface with tenant + role scoping.
+
+### Decisions made where the spec was silent (reasoned, not guessed)
+
+1. **`PRIVILEGED_ROLES` = `("admin", "principal", "registrar", "iqac")`** —
+   spec §13 names the full-visibility group as "admin/principal/registrar/
+   management," but Phase 0's `VALID_ROLES` (locked) has no `management`
+   role. Read as "every role besides faculty and student," i.e. everything
+   else Phase 0/1 already defined. `services/risk/scoping.py`.
+
+2. **`faculty_scopes.scope_type = 'section'` treated as a synonym for course
+   code** — the locked Phase 1 schema has no distinct "section" column on
+   `enrollment`/`courses`, so both `course` and `section` scope types resolve
+   against `Course.code`. `services/risk/scoping.py`.
+
+3. **`internal_marks` ordering key is `(created_at, id)`** — spec §5.2 says
+   "order internal_marks by a stable key (term/assessment order)," but the
+   locked `internal_marks` schema (Phase 1) has no term/sequence column at
+   all. `created_at` is the only deterministic ordering key the table
+   actually provides. `services/risk/signals/academic.py`.
+
+4. **Fee "unpaid/partially-paid"** = `amount_paid is None or amount_paid <
+   amount_due` — Phase 1's `fees.status` is free-text, not a relied-upon
+   enum, so eligibility is read off the numeric columns directly.
+   `services/risk/signals/fees.py`.
+
+5. **Attendance trend windows (`attendance_recent_pct`/`_prior_pct`) require
+   a *full* `2 × attendance_trend_window` sessions before computing either** —
+   spec names the windows but not what happens with a partial history. A
+   partial window isn't "the window" the config asked for, so both stay
+   `None` rather than risk a sampling artifact — same confidence-guard spirit
+   as `ATTENDANCE_BELOW_THRESHOLD`'s `attendance_min_sessions` check (spec
+   §6.3's own note). `services/risk/signals/attendance.py`.
+
+6. **Material alert transitions include `('low', 'high')`** in addition to
+   spec §11's two named cases (`None -> high`, `watch -> high`) — a prior
+   tier of `low` jumping straight to `high` (e.g. several findings appearing
+   between two imports) is the same "newly entering high" event in substance.
+   `services/risk/alerts.py`.
+
+7. **`GET /risk/students` excludes `tier == 'low'` by default** when no
+   `tier` filter is given — spec names the endpoint an "at-risk list," but
+   every active student gets an assessment (even a zero-finding one), so an
+   unfiltered query would otherwise return the entire student body, not "who
+   is at risk." An explicit `tier=low` still returns them.
+   `app/repositories/risk_repository.py`.
+
+8. **`interventions.guardian_consent_confirmed_by`** — added a column not in
+   spec §4.4's list. §9 requires recording *who* confirmed guardian consent
+   for a minor's `parent_contact` intervention; §4.4 predates that
+   requirement, same shape of gap as Phase 1's `reconciliation_report`
+   addition.
+
+9. **§7's stated invariant `findings == [] ⟺ tier == 'low'`** doesn't hold in
+   the *reverse* direction for the named default config: a lone
+   `FEE_OVERDUE` finding (weight 15, severity `low`) scores 15, which is
+   below the default `watch` cutoff of 25, so it tiers `'low'` while a
+   finding is present. Scoring is implemented exactly as specified ("clamped
+   sum of weights") and tiering exactly as specified ("score vs threshold"),
+   so this is a property of the named default numbers, not a defect in
+   `scoring.py`. The forward direction (`findings == [] => score == 0 and
+   tier == 'low'`, §15.3's literal acceptance wording) always holds and is
+   what's tested. See `tests/test_risk_scoring.py`'s module docstring.
+
+10. **`scoping.py`'s core resolution helpers were written ahead of the §12
+    build order** (listed as step 9, but needed by step 8's alert recipient
+    resolution) — built once, reused by both; no functional difference from
+    building it twice.
+
+### A real bug found and fixed in Phase 0/1 shared infrastructure
+
+`app/api/deps.py::get_tenant_session` sets `actor_user_id_ctx` (a
+`contextvars.ContextVar`) in its pre-`yield` half so that
+`core/audit.py`'s mapper-event hooks can attribute a write to the
+requesting user. **This never actually worked for a write made directly in
+a route handler body** (as opposed to a `BackgroundTask` like the ingestion
+pipeline): FastAPI/Starlette dispatch a sync generator dependency's
+pre-yield half and the route handler itself as *separate*
+`run_in_threadpool` calls, each copying a fresh `contextvars.Context` from
+the parent async context. A `.set()` made inside the dependency's copied
+context does not propagate forward into the handler's own copied context —
+confirmed empirically (same `Session` object, same eventual OS thread index,
+`actor_user_id` still came back `None` at flush time). Phase 0/1 never
+caught this because their only audited table (`users`) is only written via
+`POST /auth/register` (no "prior actor" to attribute anyway) and every other
+audited write goes through the ingestion pipeline's `BackgroundTask`, which
+sets the contextvar once at the very top of one continuous, non-threadpool-
+hopping call chain — sidestepping the bug entirely.
+
+Phase 2's audited direct-write endpoints (`PUT /risk/config`, `POST
+/risk/interventions`, `PATCH /risk/interventions/{id}`, `POST
+/risk/interventions/{id}/outcome`) hit this path squarely, and acceptance
+test §15.14 requires correct actor attribution. Fixed at the root rather
+than worked around per-route:
+
+- `core/audit.py::_resolve_actor_user_id` now prefers
+  `object_session(target).info["actor_user_id"]` — a plain dict on the
+  `Session` *instance*, immune to the threadpool-context-copy problem — and
+  only falls back to the contextvar for callers that never attach it (the
+  ingestion pipeline, where the contextvar still works correctly).
+- `get_tenant_session` now also stamps `session.info["actor_user_id"]`
+  alongside the (now mostly vestigial, kept for logging) contextvar `.set()`.
+
+This is a change outside the files named in spec §3/§17 (`core/audit.py`,
+`api/deps.py`), beyond the promised "one-line pipeline hook + audit-hook
+registrations." Justified as a correctness fix to existing, reused
+infrastructure that Phase 2's own hard acceptance criteria require — not a
+refactor or a new feature. All 81 pre-existing Phase 0/1 tests still pass
+unchanged after the fix.
+
+### Acceptance tests passing (§15, all fourteen)
+
+`tests/test_risk_rules.py` (15), `test_risk_scoring.py` (5),
+`test_risk_signals.py` (6), `test_risk_engine.py` (7, including the
+determinism, idempotency, recompute-on-import, error-isolation, config-
+effect, and no-N+1 query-count tests), `test_risk_minor_handling.py` (7),
+`test_risk_interventions.py` (3), `test_risk_api.py` (8) — 51 new tests, all
+passing. Full suite (Phase 0 + 1 + 2): **89/89 passing**,
+`test_rls_coverage.py` green with `EXEMPT_TABLES` empty across all 31
+tenant-scoped tables.
+
+### Confirmations
+
+- **No new dependencies.** Pure Python + the existing FastAPI/SQLAlchemy 2.x/
+  Alembic/pytest stack.
+- **No changes outside** `app/models/risk.py`, `app/models/__init__.py`,
+  `app/schemas/risk.py`, `app/repositories/risk_repository.py`,
+  `app/services/risk/**`, `app/api/routes/risk.py`, `app/main.py` (router
+  registration), the one Alembic migration, the §10.3 pipeline hook in
+  `app/services/ingestion/pipeline.py`, and the audit-actor fix in
+  `app/core/audit.py` / `app/api/deps.py` documented above.
+- mypy is not configured anywhere in this repo (Phase 0/1 never added it
+  either) — all new code carries full type hints regardless, per spec §14.

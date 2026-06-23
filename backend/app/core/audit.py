@@ -3,7 +3,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import event, insert
-from sqlalchemy.orm import Mapper
+from sqlalchemy.orm import Mapper, object_session
 from sqlalchemy.orm.attributes import get_history
 
 from app.models.audit import AuditLog
@@ -30,7 +30,35 @@ def _changed_columns_snapshot(target: Any, columns: list) -> tuple[dict, dict]:
     return old, new
 
 
-def _write_audit_row(connection, tenant_id, table_name: str, record_id, action: str, old_value, new_value) -> None:
+def _resolve_actor_user_id(target: Any) -> str | None:
+    """Prefers the originating Session's own .info dict over the contextvar.
+
+    actor_user_id_ctx alone is unreliable for writes that happen inside a
+    FastAPI route handler body: get_tenant_session (a sync generator
+    dependency) sets the contextvar in its pre-yield half, but FastAPI/
+    Starlette dispatches the dependency's pre-yield half and the route
+    handler itself as separate run_in_threadpool calls, each copying a fresh
+    contextvars.Context from the *parent* async context -- so a .set() made
+    inside the dependency's copied context never propagates forward to the
+    handler's own copied context, even when, by coincidence, both land on
+    the same OS thread (verified empirically; not just a theoretical risk).
+    session.info is a plain dict on the Session *instance*, not a contextvar,
+    so it survives this regardless of threading. The contextvar remains the
+    fallback for callers that never attach to a request-scoped session (e.g.
+    the ingestion pipeline's background task, which sets it once at the top
+    of one continuous, non-threadpool-hopping call chain -- see
+    services/ingestion/pipeline.py::run_pipeline)."""
+    session = object_session(target)
+    if session is not None:
+        info_actor = session.info.get("actor_user_id")
+        if info_actor is not None:
+            return info_actor
+    return actor_user_id_ctx.get()
+
+
+def _write_audit_row(
+    connection, tenant_id, table_name: str, record_id, action: str, old_value, new_value, actor_user_id: str | None
+) -> None:
     connection.execute(
         insert(AuditLog.__table__).values(
             tenant_id=tenant_id,
@@ -39,7 +67,7 @@ def _write_audit_row(connection, tenant_id, table_name: str, record_id, action: 
             action=action,
             old_value=old_value or None,
             new_value=new_value or None,
-            actor_user_id=actor_user_id_ctx.get(),
+            actor_user_id=actor_user_id,
         )
     )
 
@@ -57,7 +85,8 @@ def register_audit_hooks(mapped_class: type) -> None:
     @event.listens_for(mapped_class, "after_insert")
     def _after_insert(mapper: Mapper, connection, target) -> None:
         _, new_value = _changed_columns_snapshot(target, columns)
-        _write_audit_row(connection, target.tenant_id, table_name, target.id, "insert", None, new_value)
+        actor = _resolve_actor_user_id(target)
+        _write_audit_row(connection, target.tenant_id, table_name, target.id, "insert", None, new_value, actor)
 
     @event.listens_for(mapped_class, "after_update")
     def _after_update(mapper: Mapper, connection, target) -> None:
@@ -66,4 +95,5 @@ def register_audit_hooks(mapped_class: type) -> None:
             return
         is_soft_delete = old_value.get("is_deleted") is False and new_value.get("is_deleted") is True
         action = "soft_delete" if is_soft_delete else "update"
-        _write_audit_row(connection, target.tenant_id, table_name, target.id, action, old_value, new_value)
+        actor = _resolve_actor_user_id(target)
+        _write_audit_row(connection, target.tenant_id, table_name, target.id, action, old_value, new_value, actor)

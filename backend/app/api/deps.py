@@ -43,16 +43,24 @@ def get_tenant_session(current_user: CurrentUser = Depends(get_current_user)) ->
     """Opens a session and, inside its transaction, sets the RLS tenant context
     from the verified JWT — never from a header, query param, or file (spec §4.3).
 
+    Also stamps session.info["actor_user_id"] (a plain dict on the Session
+    *instance*) rather than relying solely on the actor_user_id_ctx
+    contextvar for audit attribution. The contextvar alone is unreliable
+    here: FastAPI/Starlette runs a sync generator dependency's pre-yield half
+    and the route handler itself as separate run_in_threadpool calls, each
+    copying a fresh contextvars.Context from the parent async context — so a
+    .set() made in the dependency's copied context does not propagate
+    forward to the handler's copied context (confirmed empirically: same
+    Session, same eventual OS thread, actor still came back None). See
+    core/audit.py::_resolve_actor_user_id for the read side of this fix.
+
     Deliberately doesn't reset actor_user_id_ctx/tenant_id_ctx via a saved
-    Token: sync generator dependencies can run their pre- and post-yield
-    halves in different worker threads (FastAPI/anyio thread-pool offloading),
-    so a Token minted in one thread can't be used to reset a ContextVar in
-    another ("was created in a different Context"). Each request sets fresh
-    values before using them, so not resetting only risks a stale value
-    leaking into logs/audit between requests on a reused thread — a cosmetic
-    issue for these log/audit-only contextvars, not a correctness one.
+    Token, for the same cross-context reason a plain .set() doesn't reliably
+    read back either — harmless for these two, since session.info now carries
+    the actor for audit purposes and tenant_id_ctx is log-context-only.
     """
     session = SessionLocal()
+    session.info["actor_user_id"] = str(current_user.user_id)
     actor_user_id_ctx.set(str(current_user.user_id))
     tenant_id_ctx.set(str(current_user.tenant_id))
     try:
