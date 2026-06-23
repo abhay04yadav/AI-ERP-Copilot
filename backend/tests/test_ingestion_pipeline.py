@@ -253,3 +253,31 @@ def test_reconciliation_report_balances(client):
     assert report["quarantined_count"] == 1
     assert report["loaded_count"] == 2
     assert report["valid_count"] == report["loaded_count"] + report["no_op_or_pending_review_count"]
+
+
+def test_pipeline_loaded_row_has_correct_audit_actor(client, superuser_connection):
+    slug = "audit-actor-college"
+    token = _register(client, slug)
+    source_id = _create_source(client, token)
+    _create_mapping(client, token, source_id, "student", STUDENT_MAPPING)
+
+    admin_user_id = superuser_connection.execute(
+        text("SELECT id FROM users WHERE email = :email"), {"email": f"admin@{slug}.edu"}
+    ).scalar_one()
+
+    content = (STUDENT_CSV_HEADER + "CS101,John Doe,12/05/2003,M,john@test.edu,9876543210,2021\n").encode()
+    batch_id = _upload(client, token, source_id, "student", "students.csv", content)
+    assert _get_batch(client, token, batch_id)["status"] == "COMPLETED"
+
+    student_id = superuser_connection.execute(
+        text("SELECT id FROM students WHERE canonical_roll_no = 'CS101'")
+    ).scalar_one()
+
+    actor = superuser_connection.execute(
+        text(
+            "SELECT actor_user_id FROM audit_log "
+            "WHERE table_name = 'students' AND record_id = :rid AND action = 'insert'"
+        ),
+        {"rid": str(student_id)},
+    ).scalar_one()
+    assert str(actor) == str(admin_user_id), "pipeline-loaded canonical row must record the importing user as audit actor"

@@ -27,7 +27,9 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.audit import actor_user_id_ctx
 from app.core.db import SessionLocal
+from app.core.logging import tenant_id_ctx
 from app.core.rls import set_tenant_context
 from app.core.storage import get_storage_backend
 from app.models.ingestion import ColumnMapping, ImportBatch, RawRecord, StagingRecord
@@ -55,12 +57,15 @@ _SIMPLE_LOADERS = {
 SUPPORTED_ENTITY_TYPES = frozenset({"student", *_SIMPLE_LOADERS})
 
 
-def run_pipeline(tenant_id: UUID, import_batch_id: UUID, content: bytes) -> None:
+def run_pipeline(tenant_id: UUID, import_batch_id: UUID, content: bytes, actor_user_id: UUID) -> None:
     """Runs as a FastAPI BackgroundTask, which Starlette does not shield from
     exceptions — letting one escape here would propagate into (and crash) the
     ASGI response cycle that's already been sent. The batch's FAILED status +
     error message in the DB is the actual signal clients observe (via GET
     /imports/{id}), so failures are logged, not re-raised."""
+    actor_user_id_ctx.set(str(actor_user_id))
+    tenant_id_ctx.set(str(tenant_id))
+
     session = SessionLocal()
     try:
         _phase_parse(session, tenant_id, import_batch_id, content)

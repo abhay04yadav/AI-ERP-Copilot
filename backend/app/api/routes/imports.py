@@ -51,7 +51,7 @@ async def create_import(
     # Captured before the background task runs (it gets its own session/transaction,
     # opened only after this request's session commits — FastAPI runs background
     # tasks after the response, i.e. after get_tenant_session's commit).
-    background_tasks.add_task(run_pipeline, current_user.tenant_id, batch.id, content)
+    background_tasks.add_task(run_pipeline, current_user.tenant_id, batch.id, content, current_user.user_id)
     return batch
 
 
