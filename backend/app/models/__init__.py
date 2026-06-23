@@ -19,6 +19,15 @@ from app.models.canonical import (
 from app.models.conflict import DataConflict
 from app.models.identity import EntityIdentityMap, MergeReviewItem
 from app.models.ingestion import ColumnMapping, ImportBatch, RawFile, RawRecord, SourceSystem, StagingRecord
+from app.models.risk import (
+    FacultyScope,
+    Intervention,
+    InterventionOutcome,
+    RiskAlert,
+    RiskAssessment,
+    RiskConfig,
+    RiskFinding,
+)
 from app.models.tenant import Tenant
 from app.models.user import User
 
@@ -40,6 +49,12 @@ for _canonical_model in (
     SemesterResult,
 ):
     register_audit_hooks(_canonical_model)
+
+# Risk engine: mutable/security-relevant tables only (spec §4, build step 1).
+# risk_findings and risk_alerts are intentionally excluded — see their model
+# docstrings (immutable child of an audited parent; high-volume/non-critical).
+for _risk_model in (RiskConfig, RiskAssessment, Intervention, InterventionOutcome, FacultyScope):
+    register_audit_hooks(_risk_model)
 
 __all__ = [
     "Base",
@@ -68,4 +83,11 @@ __all__ = [
     "Placement",
     "ResearchPublication",
     "DataConflict",
+    "RiskConfig",
+    "RiskAssessment",
+    "RiskFinding",
+    "Intervention",
+    "InterventionOutcome",
+    "RiskAlert",
+    "FacultyScope",
 ]
