@@ -21,7 +21,8 @@ opens its own session since it executes outside any request's session.
 """
 
 import logging
-from datetime import datetime, timezone
+from dataclasses import asdict
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -89,13 +90,42 @@ def _phase_risk_recompute(tenant_id: UUID, import_batch_id: UUID) -> None:
     closed. A failure here must NOT flip the already-successful import to
     FAILED -- it's logged and otherwise swallowed; the import stays
     COMPLETED. The risk module imports nothing from the pipeline; this is the
-    only call site, kept one-directional."""
+    only call site, kept one-directional.
+
+    Phase 2 hardening CHANGE 3: the outcome (status + RecomputeSummary) is
+    persisted onto the import batch itself, since a recompute failure never
+    flips import_batches.status away from COMPLETED -- without this, a
+    partial/total recompute failure would otherwise be invisible to anyone
+    not reading the worker logs.
+    """
     session = SessionLocal()
     try:
         with session.begin():
-            recompute_for_import_batch(session, tenant_id, import_batch_id)
-    except Exception:  # noqa: BLE001 - risk recompute failure must not affect import status
+            summary = recompute_for_import_batch(session, tenant_id, import_batch_id)
+        if summary.errors:
+            status = "partial"
+        elif summary.evaluated == 0:
+            status = "skipped"  # e.g. a non-risk-relevant entity_type, or no affected students
+        else:
+            status = "ok"
+        summary_json = asdict(summary)
+    except Exception as exc:  # noqa: BLE001 - risk recompute failure must not affect import status
         logger.exception("Risk recompute failed for import_batch_id=%s (import already COMPLETED)", import_batch_id)
+        status, summary_json = "failed", {"error": str(exc)}
+    finally:
+        session.close()
+
+    _set_recompute_outcome(tenant_id, import_batch_id, status, summary_json)
+
+
+def _set_recompute_outcome(tenant_id: UUID, import_batch_id: UUID, status: str, summary: dict) -> None:
+    session = SessionLocal()
+    try:
+        with session.begin():
+            set_tenant_context(session, tenant_id)
+            batch = session.get(ImportBatch, import_batch_id)
+            batch.risk_recompute_status = status
+            batch.risk_recompute_summary = summary
     finally:
         session.close()
 

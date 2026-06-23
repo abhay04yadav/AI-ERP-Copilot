@@ -309,3 +309,72 @@ def _tenant_id_or_create(superuser_connection, slug: str):
     ).scalar_one()
     superuser_connection.commit()
     return tid
+
+
+def test_import_records_recompute_status_ok(client, superuser_connection):
+    """Phase 2 hardening CHANGE 3."""
+    token, source_id = _setup_attendance_import(client, "hardening-recompute-ok-college")
+    tenant_id = _tenant_id_for_slug(superuser_connection, "hardening-recompute-ok-college")
+    _insert_course(superuser_connection, tenant_id, "CS101")
+    _insert_student(superuser_connection, tenant_id, "RCOK001")
+
+    batch_id = _upload_attendance(client, token, source_id, _attendance_csv("RCOK001", "CS101", 3, 9))
+    batch = client.get(f"/imports/{batch_id}", headers=_auth(token)).json()
+
+    assert batch["status"] == "COMPLETED"
+    assert batch["risk_recompute_status"] == "ok"
+    assert batch["risk_recompute_summary"]["evaluated"] >= 1
+    assert batch["risk_recompute_summary"]["errors"] == []
+
+
+def test_import_recompute_failure_marks_partial_but_import_stays_completed(client, superuser_connection, monkeypatch):
+    """Phase 2 hardening CHANGE 3."""
+    token, source_id = _setup_attendance_import(client, "hardening-recompute-partial-college")
+    tenant_id = _tenant_id_for_slug(superuser_connection, "hardening-recompute-partial-college")
+    _insert_course(superuser_connection, tenant_id, "CS101")
+    bad_id = _insert_student(superuser_connection, tenant_id, "RCFAIL001")
+
+    from app.services.risk import engine as engine_module
+
+    real_evaluate = engine_module._evaluator.evaluate
+
+    def flaky_evaluate(signals, config):
+        if signals.student_id == bad_id:
+            raise RuntimeError("injected failure for recompute-status test")
+        return real_evaluate(signals, config)
+
+    monkeypatch.setattr(engine_module._evaluator, "evaluate", flaky_evaluate)
+
+    batch_id = _upload_attendance(client, token, source_id, _attendance_csv("RCFAIL001", "CS101", 3, 9))
+    batch = client.get(f"/imports/{batch_id}", headers=_auth(token)).json()
+
+    assert batch["status"] == "COMPLETED"  # the import itself never fails
+    assert batch["risk_recompute_status"] == "partial"
+    assert len(batch["risk_recompute_summary"]["errors"]) == 1
+    assert batch["risk_recompute_summary"]["errors"][0]["student_id"] == str(bad_id)
+
+
+def test_import_of_non_risk_relevant_entity_type_marks_recompute_skipped(client, superuser_connection):
+    """Phase 2 hardening CHANGE 3: a department import has no affected
+    students, so there's nothing to recompute."""
+    token = _register(client, "hardening-recompute-skipped-college")
+    resp = client.post("/sources", headers=_auth(token), json={"name": "SIS", "precedence": 1})
+    source_id = resp.json()["id"]
+    client.post(
+        "/mappings",
+        headers=_auth(token),
+        json={"source_system_id": source_id, "entity_type": "department", "mapping": {"code": "Code", "name": "Name"}},
+    )
+
+    resp = client.post(
+        "/imports",
+        headers=_auth(token),
+        files={"file": ("dept.csv", BytesIO(b"Code,Name\nCSE,Computer Science\n"), "text/csv")},
+        data={"source_system_id": source_id, "entity_type": "department"},
+    )
+    assert resp.status_code == 200, resp.text
+    batch_id = resp.json()["id"]
+
+    batch = client.get(f"/imports/{batch_id}", headers=_auth(token)).json()
+    assert batch["status"] == "COMPLETED"
+    assert batch["risk_recompute_status"] == "skipped"

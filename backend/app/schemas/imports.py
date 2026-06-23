@@ -18,6 +18,8 @@ class ImportBatchResponse(BaseModel):
     started_at: datetime | None
     finished_at: datetime | None
     reconciliation_report: dict | None
+    risk_recompute_status: str | None
+    risk_recompute_summary: dict | None
 
 
 class QuarantineRowResponse(BaseModel):

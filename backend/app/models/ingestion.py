@@ -19,6 +19,7 @@ PIPELINE_STATES = (
     "FAILED",
 )
 VALIDATION_STATUSES = ("valid", "quarantined")
+RISK_RECOMPUTE_STATUSES = ("ok", "partial", "failed", "skipped")
 
 
 class SourceSystem(PKMixin, TenantMixin, Base):
@@ -48,6 +49,10 @@ class ImportBatch(PKMixin, TenantMixin, Base):
     __table_args__ = (
         Index("ix_import_batches_tenant_source_hash", "tenant_id", "source_system_id", "content_hash"),
         CheckConstraint(f"status IN {PIPELINE_STATES}", name="ck_import_batches_status"),
+        CheckConstraint(
+            f"risk_recompute_status IS NULL OR risk_recompute_status IN {RISK_RECOMPUTE_STATUSES}",
+            name="ck_import_batches_risk_recompute_status",
+        ),
     )
 
     source_system_id: Mapped[uuid.UUID] = mapped_column(
@@ -68,6 +73,11 @@ class ImportBatch(PKMixin, TenantMixin, Base):
     """Not in spec §5.2's column list, but §5.8 explicitly requires the DQ
     report to be "persist[ed] + expose[d] via imports.py" — added to close
     that gap (CHANGELOG.md)."""
+    risk_recompute_status: Mapped[str | None] = mapped_column(nullable=True)
+    risk_recompute_summary: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    """Phase 2 hardening CHANGE 3: makes a failed/partial post-import risk
+    recompute observable on the import itself, since a recompute failure
+    never flips the import's own status away from COMPLETED (spec §10.3)."""
 
 
 class RawFile(PKMixin, TenantMixin, Base):
