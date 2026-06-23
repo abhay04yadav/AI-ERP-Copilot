@@ -12,7 +12,7 @@ through rolls back the whole entity-type's batch, never a partial canonical
 write (spec §5.6, acceptance test §9.5).
 """
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -36,7 +36,7 @@ def _apply_provenance(entity, *, source_system_id: UUID, source_record_id: str, 
     entity.source_system_id = source_system_id
     entity.source_record_id = source_record_id
     entity.import_batch_id = import_batch_id
-    entity.ingested_at = datetime.now(timezone.utc)
+    entity.ingested_at = datetime.now(UTC)
 
 
 def _find_department(session: Session, tenant_id: UUID, code: str | None) -> Department | None:
@@ -58,7 +58,9 @@ def _find_programme(session: Session, tenant_id: UUID, code: str | None) -> Prog
 def _find_course(session: Session, tenant_id: UUID, code: str | None) -> Course | None:
     if not code:
         return None
-    return session.execute(select(Course).where(Course.tenant_id == tenant_id, Course.code == code)).scalar_one_or_none()
+    return session.execute(
+        select(Course).where(Course.tenant_id == tenant_id, Course.code == code)
+    ).scalar_one_or_none()
 
 
 def _find_student_by_roll_no(session: Session, tenant_id: UUID, roll_no: str | None) -> Student | None:

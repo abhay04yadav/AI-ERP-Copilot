@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import jwt
@@ -22,7 +22,7 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 
 def _create_token(user_id: UUID, tenant_id: UUID, role: str, expires_delta: timedelta, token_type: str) -> str:
-    expire = datetime.now(timezone.utc) + expires_delta
+    expire = datetime.now(UTC) + expires_delta
     payload = {
         "sub": str(user_id),
         "tenant_id": str(tenant_id),

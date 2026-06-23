@@ -105,7 +105,7 @@ def _phase_parse(session: Session, tenant_id: UUID, import_batch_id: UUID, conte
         set_tenant_context(session, tenant_id)
         batch = session.get(ImportBatch, import_batch_id)
         batch.status = "RECEIVED"
-        batch.started_at = datetime.now(timezone.utc)
+        batch.started_at = datetime.now(UTC)
 
         connector = CsvExcelConnector(batch.original_filename)
         storage = get_storage_backend()
@@ -229,7 +229,7 @@ def _phase_reconcile(session: Session, tenant_id: UUID, import_batch_id: UUID) -
         }
 
         batch.status = "COMPLETED"
-        batch.finished_at = datetime.now(timezone.utc)
+        batch.finished_at = datetime.now(UTC)
 
 
 def _mark_failed(tenant_id: UUID, import_batch_id: UUID, error: str) -> None:
@@ -240,6 +240,6 @@ def _mark_failed(tenant_id: UUID, import_batch_id: UUID, error: str) -> None:
             batch = session.get(ImportBatch, import_batch_id)
             batch.status = "FAILED"
             batch.error = error
-            batch.finished_at = datetime.now(timezone.utc)
+            batch.finished_at = datetime.now(UTC)
     finally:
         session.close()

@@ -26,6 +26,10 @@ test = [
     "httpx==0.28.1",
     "testcontainers[postgres]==4.9.0",
 ]
+dev = [
+    "mypy==1.13.0",
+    "ruff==0.8.4",
+]
 
 [build-system]
 requires = ["setuptools>=69"]
@@ -33,3 +37,23 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["app*"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = []
+ignore_missing_imports = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+# B008 (function-call-in-default-argument) flags FastAPI's Depends()/Query()/
+# Body() default-argument pattern, which is the framework's intended DI
+# mechanism, not a bug -- the standard, documented exclusion for FastAPI
+# codebases (Phase 2 hardening CHANGE 4b).
+ignore = ["B008"]

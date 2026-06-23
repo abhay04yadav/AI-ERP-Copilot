@@ -3,6 +3,7 @@
 is always resolved server-side from the verified JWT, never from client
 input (spec §14 security)."""
 
+from collections.abc import Sequence
 from dataclasses import asdict
 from uuid import UUID
 
@@ -13,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import CurrentUser, get_current_user, get_tenant_session
 from app.core.exceptions import AppException, ForbiddenException, NotFoundException
 from app.models.canonical import Student
-from app.models.risk import Intervention, RiskAlert
+from app.models.risk import Intervention, RiskAlert, RiskAssessment, RiskFinding
 from app.repositories.risk_repository import RiskRepository
 from app.schemas.risk import (
     AlertResponse,
@@ -28,6 +29,7 @@ from app.schemas.risk import (
     RiskAssessmentResponse,
     RiskConfigResponse,
     RiskConfigUpdateRequest,
+    RiskFindingResponse,
     StudentRiskDetailResponse,
 )
 from app.services.risk import interventions as interventions_service
@@ -47,7 +49,9 @@ def _visible_ids(session: Session, current_user: CurrentUser) -> set[UUID] | Non
     return visible_student_ids(session, current_user.tenant_id, current_user.role, current_user.user_id)
 
 
-def _assessment_to_response(assessment, findings) -> RiskAssessmentResponse:
+def _assessment_to_response(
+    assessment: RiskAssessment, findings: Sequence[RiskFinding]
+) -> RiskAssessmentResponse:
     return RiskAssessmentResponse(
         id=assessment.id,
         student_id=assessment.student_id,
@@ -60,14 +64,14 @@ def _assessment_to_response(assessment, findings) -> RiskAssessmentResponse:
         triggered_by=assessment.triggered_by,
         computed_at=assessment.computed_at,
         findings=[
-            {
-                "risk_type": f.risk_type,
-                "code": f.code,
-                "severity": f.severity,
-                "weight_contribution": float(f.weight_contribution),
-                "message": f.message,
-                "evidence": f.evidence,
-            }
+            RiskFindingResponse(
+                risk_type=f.risk_type,
+                code=f.code,
+                severity=f.severity,
+                weight_contribution=float(f.weight_contribution),
+                message=f.message,
+                evidence=f.evidence,
+            )
             for f in findings
         ],
     )
@@ -123,7 +127,10 @@ def get_student_risk(
         return StudentRiskDetailResponse(student_id=student_id, current=None, history=[], active_interventions=[])
 
     history = [_assessment_to_response(a, repo.get_findings(a.id)) for a in repo.get_history(student_id)]
-    active_interventions = [InterventionResponse.model_validate(i, from_attributes=True) for i in repo.get_active_interventions(student_id)]
+    active_interventions = [
+        InterventionResponse.model_validate(i, from_attributes=True)
+        for i in repo.get_active_interventions(student_id)
+    ]
     return StudentRiskDetailResponse(
         student_id=student_id,
         current=_assessment_to_response(current, repo.get_findings(current.id)),
@@ -228,7 +235,9 @@ def list_interventions(
     if visible is not None and student_id is not None and student_id not in visible:
         raise NotFoundException("Student not found.")
 
-    query = select(Intervention).where(Intervention.tenant_id == current_user.tenant_id, Intervention.is_deleted.is_(False))
+    query = select(Intervention).where(
+        Intervention.tenant_id == current_user.tenant_id, Intervention.is_deleted.is_(False)
+    )
     if visible is not None:
         query = query.where(Intervention.student_id.in_(visible))
     if student_id is not None:
@@ -280,7 +289,12 @@ def create_outcome(
         raise NotFoundException("Intervention not found.")
 
     outcome = interventions_service.record_outcome(
-        session, current_user.tenant_id, intervention_id, outcome=payload.outcome, notes=payload.notes, recorded_by=current_user.user_id
+        session,
+        current_user.tenant_id,
+        intervention_id,
+        outcome=payload.outcome,
+        notes=payload.notes,
+        recorded_by=current_user.user_id,
     )
     return InterventionOutcomeResponse.model_validate(outcome, from_attributes=True)
 

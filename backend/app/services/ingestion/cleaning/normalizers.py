@@ -51,7 +51,7 @@ def normalize_date(value: object) -> str | None:
         return value.date().isoformat()
     if isinstance(value, date):
         return value.isoformat()
-    if isinstance(value, (int, float)):
+    if isinstance(value, int | float):
         try:
             return (EXCEL_EPOCH + timedelta(days=float(value))).date().isoformat()
         except (OverflowError, ValueError):
@@ -122,7 +122,7 @@ def normalize_number(value: object) -> Decimal | None:
     value = normalize_nullish(value)
     if value is None:
         return None
-    if isinstance(value, (int, float, Decimal)):
+    if isinstance(value, int | float | Decimal):
         return Decimal(str(value))
     text = str(value).strip().replace(",", "").replace("%", "")
     try:

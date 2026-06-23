@@ -3,9 +3,10 @@ single assessment + findings + history, active interventions. Defense in
 depth on top of (not instead of) RLS -- every query below filters by
 tenant_id explicitly, same convention as repositories/base.py."""
 
+from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import Row, select
 from sqlalchemy.orm import Session
 
 from app.models.canonical import Department, Programme, Student
@@ -29,7 +30,7 @@ class RiskRepository:
         min_score: float | None = None,
         page: int = 1,
         page_size: int = 50,
-    ) -> list[tuple[RiskAssessment, Student]]:
+    ) -> Sequence[Row[tuple[RiskAssessment, Student]]]:
         if student_ids is not None and not student_ids:
             return []  # role-scoped to nothing visible -- don't even query
 
@@ -78,21 +79,21 @@ class RiskRepository:
             )
         ).scalar_one_or_none()
 
-    def get_findings(self, assessment_id: UUID) -> list[RiskFinding]:
+    def get_findings(self, assessment_id: UUID) -> Sequence[RiskFinding]:
         return self.session.execute(
             select(RiskFinding).where(
                 RiskFinding.tenant_id == self.tenant_id, RiskFinding.assessment_id == assessment_id
             )
         ).scalars().all()
 
-    def get_history(self, student_id: UUID) -> list[RiskAssessment]:
+    def get_history(self, student_id: UUID) -> Sequence[RiskAssessment]:
         return self.session.execute(
             select(RiskAssessment)
             .where(RiskAssessment.tenant_id == self.tenant_id, RiskAssessment.student_id == student_id)
             .order_by(RiskAssessment.computed_at.desc())
         ).scalars().all()
 
-    def get_active_interventions(self, student_id: UUID) -> list[Intervention]:
+    def get_active_interventions(self, student_id: UUID) -> Sequence[Intervention]:
         return self.session.execute(
             select(Intervention).where(
                 Intervention.tenant_id == self.tenant_id,

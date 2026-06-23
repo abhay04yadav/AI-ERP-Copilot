@@ -21,8 +21,7 @@ class CsvExcelConnector(Connector):
     def read_rows(self, content: bytes) -> Iterator[dict[str, object]]:
         df = self._read_dataframe(content)
         # NaN -> None so every downstream stage sees a real null, not float('nan').
-        for record in df.where(pd.notna(df), None).to_dict(orient="records"):
-            yield record
+        yield from df.where(pd.notna(df), None).to_dict(orient="records")
 
     def _read_dataframe(self, content: bytes, nrows: int | None = None) -> pd.DataFrame:
         buffer = io.BytesIO(content)

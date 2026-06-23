@@ -7,7 +7,9 @@ from app.models.ingestion import StagingRecord
 from app.services.ingestion.mapping import ENTITY_CANONICAL_FIELDS
 
 
-def compute_completeness(session: Session, tenant_id: UUID, import_batch_id: UUID, entity_type: str) -> dict[str, float]:
+def compute_completeness(
+    session: Session, tenant_id: UUID, import_batch_id: UUID, entity_type: str
+) -> dict[str, float]:
     """% of this batch's staging rows where each expected canonical field is
     populated (spec §5.8)."""
     rows = (

@@ -7,7 +7,6 @@ worded in the spec: with A's tenant context set, B's rows are unreadable;
 with no tenant context set, the table returns zero rows.
 """
 
-import uuid
 
 from sqlalchemy import text
 

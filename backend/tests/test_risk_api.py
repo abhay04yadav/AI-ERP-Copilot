@@ -3,7 +3,6 @@
 
 from datetime import date, timedelta
 from io import BytesIO
-from uuid import uuid4
 
 from sqlalchemy import text
 
@@ -154,7 +153,7 @@ def test_tenant_isolation_no_cross_tenant_visibility(client, superuser_connectio
 
 def test_faculty_sees_only_their_scoped_department(client, superuser_connection):
     slug = "api-scope-college"
-    token = _register(client, slug)
+    _register(client, slug)
     tenant_id = _tenant_id_for_slug(superuser_connection, slug)
 
     dept_cse = _insert_department(superuser_connection, tenant_id, "CSE")
@@ -177,7 +176,7 @@ def test_faculty_sees_only_their_scoped_department(client, superuser_connection)
 
 def test_principal_sees_all_students_regardless_of_scope(client, superuser_connection):
     slug = "api-principal-college"
-    token = _register(client, slug)
+    _register(client, slug)
     tenant_id = _tenant_id_for_slug(superuser_connection, slug)
     student_id = _insert_student(superuser_connection, tenant_id, "PRIN001")
 
@@ -190,7 +189,7 @@ def test_principal_sees_all_students_regardless_of_scope(client, superuser_conne
 
 def test_student_role_is_forbidden(client, superuser_connection):
     slug = "api-student-role-college"
-    token = _register(client, slug)
+    _register(client, slug)
     tenant_id = _tenant_id_for_slug(superuser_connection, slug)
     student_user_id = _insert_user(superuser_connection, tenant_id, "stu@s.edu", "student")
     student_token = _token_for(tenant_id, student_user_id, "student")
@@ -201,7 +200,7 @@ def test_student_role_is_forbidden(client, superuser_connection):
 
 def test_faculty_request_for_unscoped_student_is_404_not_403(client, superuser_connection):
     slug = "api-404-college"
-    token = _register(client, slug)
+    _register(client, slug)
     tenant_id = _tenant_id_for_slug(superuser_connection, slug)
     student_id = _insert_student(superuser_connection, tenant_id, "NOSCOPE001")
     faculty_id = _insert_user(superuser_connection, tenant_id, "fac2@s.edu", "faculty")
@@ -224,7 +223,7 @@ def test_config_endpoints_admin_only(client, superuser_connection):
 
 def test_recompute_forbidden_for_faculty_allowed_for_registrar(client, superuser_connection):
     slug = "api-recompute-college"
-    token = _register(client, slug)
+    _register(client, slug)
     tenant_id = _tenant_id_for_slug(superuser_connection, slug)
     faculty_id = _insert_user(superuser_connection, tenant_id, "fac4@s.edu", "faculty")
     faculty_token = _token_for(tenant_id, faculty_id, "faculty")
@@ -249,10 +248,8 @@ def test_alerts_are_scoped_to_the_requesting_recipient(client, superuser_connect
     admin_alerts = client.get("/risk/alerts", headers=_auth(token)).json()
     assert isinstance(admin_alerts, list)
     if admin_alerts:
-        admin_id = superuser_connection.execute(
-            text("SELECT id FROM users WHERE email = 'admin@api-alerts-college.edu'")
-        ).scalar_one()
-        assert all(a["student_id"] == str(_student_id_for_roll(superuser_connection, tenant_id, "ALERT001")) for a in admin_alerts)
+        expected_student_id = str(_student_id_for_roll(superuser_connection, tenant_id, "ALERT001"))
+        assert all(a["student_id"] == expected_student_id for a in admin_alerts)
 
     other_token = _register(client, "api-alerts-college-2")
     other_alerts = client.get("/risk/alerts", headers=_auth(other_token)).json()

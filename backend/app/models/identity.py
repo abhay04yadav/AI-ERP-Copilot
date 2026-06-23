@@ -46,5 +46,7 @@ class MergeReviewItem(PKMixin, TenantMixin, Base):
     candidate_canonical_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     incoming_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
     score: Mapped[Decimal] = mapped_column(nullable=False)
-    status: Mapped[str] = mapped_column(nullable=False, default="pending_review", server_default=text("'pending_review'"))
+    status: Mapped[str] = mapped_column(
+        nullable=False, default="pending_review", server_default=text("'pending_review'")
+    )
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"), nullable=False)

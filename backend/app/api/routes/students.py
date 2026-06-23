@@ -63,7 +63,11 @@ def get_student_360(
     ).scalars().all()
     fees = [
         FeeSummary(
-            term=row.term, fee_head=row.fee_head, amount_due=row.amount_due, amount_paid=row.amount_paid, status=row.status
+            term=row.term,
+            fee_head=row.fee_head,
+            amount_due=row.amount_due,
+            amount_paid=row.amount_paid,
+            status=row.status,
         )
         for row in fee_rows
     ]

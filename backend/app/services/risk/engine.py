@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from app.core.rls import set_tenant_context
 from app.models.canonical import Attendance, Enrollment, Fee, InternalMark, Student
 from app.models.ingestion import ImportBatch, StagingRecord
-from app.models.risk import RiskAssessment, RiskFinding
+from app.models.risk import RiskAssessment, RiskConfig, RiskFinding
 from app.services.risk.alerts import generate_alert_if_material
 from app.services.risk.config import get_or_seed_config
 from app.services.risk.evaluator.base import AssessmentResult
@@ -37,7 +37,8 @@ from app.services.risk.signals.fees import compute_fee_signals
 logger = logging.getLogger(__name__)
 
 _RISK_RELEVANT_ENTITY_TYPES = ("student", "attendance", "internal_mark", "fee", "enrollment")
-_ENTITY_MODEL_BY_TYPE = {
+_RiskEntityModel = Attendance | InternalMark | Fee | Enrollment
+_ENTITY_MODEL_BY_TYPE: dict[str, type[_RiskEntityModel]] = {
     "attendance": Attendance,
     "internal_mark": InternalMark,
     "fee": Fee,
@@ -109,7 +110,8 @@ def _bulk_compute_signals(
 
 
 def _result_signature(result: AssessmentResult) -> tuple:
-    return (result.tier, float(result.overall_score), frozenset((f.code, float(f.weight_contribution)) for f in result.findings))
+    findings_signature = frozenset((f.code, float(f.weight_contribution)) for f in result.findings)
+    return (result.tier, float(result.overall_score), findings_signature)
 
 
 def _current_assessment_and_signature(
@@ -143,7 +145,7 @@ def _persist_one(
     tenant_id: UUID,
     student_id: UUID,
     signals: StudentSignals,
-    config_row,
+    config_row: RiskConfig,
     triggered_by: str,
     import_batch_id: UUID | None,
 ) -> str:
@@ -259,20 +261,23 @@ def recompute_for_import_batch(session: Session, tenant_id: UUID, import_batch_i
     if batch is None or batch.entity_type not in _RISK_RELEVANT_ENTITY_TYPES:
         return RecomputeSummary()
 
-    resolved_ids = session.execute(
+    resolved_ids_raw = session.execute(
         select(StagingRecord.resolved_entity_id).where(
             StagingRecord.tenant_id == tenant_id,
             StagingRecord.import_batch_id == import_batch_id,
             StagingRecord.resolved_entity_id.is_not(None),
         )
     ).scalars().all()
+    resolved_ids: list[UUID] = [rid for rid in resolved_ids_raw if rid is not None]
 
     if batch.entity_type == "student":
-        student_ids = list(resolved_ids)
+        student_ids = resolved_ids
     else:
-        student_ids = _student_ids_for_entity_rows(session, tenant_id, batch.entity_type, list(resolved_ids))
+        student_ids = _student_ids_for_entity_rows(session, tenant_id, batch.entity_type, resolved_ids)
 
-    return recompute_for_students(session, tenant_id, student_ids, triggered_by="import", import_batch_id=import_batch_id)
+    return recompute_for_students(
+        session, tenant_id, student_ids, triggered_by="import", import_batch_id=import_batch_id
+    )
 
 
 def _student_ids_for_entity_rows(
@@ -286,4 +291,4 @@ def _student_ids_for_entity_rows(
             model.tenant_id == tenant_id, model.id.in_(resolved_ids), model.student_id.is_not(None)
         )
     ).scalars().all()
-    return list(dict.fromkeys(rows))
+    return list(dict.fromkeys(rid for rid in rows if rid is not None))

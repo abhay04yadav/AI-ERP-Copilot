@@ -34,7 +34,9 @@ def test_high_confidence_auto_links_no_review_item(app_session_factory):
     try:
         with session.begin():
             tenant, source = _make_tenant_and_source(session, "fuzzy-high")
-            existing = Student(tenant_id=tenant.id, canonical_roll_no="X001", name="Aarav Sharma", dob=date(2003, 1, 15))
+            existing = Student(
+                tenant_id=tenant.id, canonical_roll_no="X001", name="Aarav Sharma", dob=date(2003, 1, 15)
+            )
             session.add(existing)
             session.flush()
 
@@ -55,7 +57,9 @@ def test_medium_confidence_queues_review_never_auto_merges(app_session_factory, 
     try:
         with session.begin():
             tenant, source = _make_tenant_and_source(session, "fuzzy-medium")
-            existing = Student(tenant_id=tenant.id, canonical_roll_no="X001", name="Aarav Sharma", dob=date(2003, 1, 15))
+            existing = Student(
+                tenant_id=tenant.id, canonical_roll_no="X001", name="Aarav Sharma", dob=date(2003, 1, 15)
+            )
             session.add(existing)
             session.flush()
 
@@ -83,7 +87,9 @@ def test_low_confidence_treated_as_new_student(app_session_factory, monkeypatch)
     try:
         with session.begin():
             tenant, source = _make_tenant_and_source(session, "fuzzy-low")
-            existing = Student(tenant_id=tenant.id, canonical_roll_no="X001", name="Aarav Sharma", dob=date(2003, 1, 15))
+            existing = Student(
+                tenant_id=tenant.id, canonical_roll_no="X001", name="Aarav Sharma", dob=date(2003, 1, 15)
+            )
             session.add(existing)
             session.flush()
 

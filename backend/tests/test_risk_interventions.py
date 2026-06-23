@@ -2,8 +2,6 @@
 in_progress -> completed -> outcome recorded), each write audited with the
 correct actor."""
 
-from datetime import date
-from io import BytesIO
 
 from sqlalchemy import text
 
@@ -127,7 +125,12 @@ def test_list_interventions_filters_by_student_status_and_assignee(client, super
     resp_b = client.post(
         "/risk/interventions",
         headers=_auth(token),
-        json={"student_id": str(student_b), "type": "remedial_class", "title": "B's class", "assigned_to": str(admin_id)},
+        json={
+            "student_id": str(student_b),
+            "type": "remedial_class",
+            "title": "B's class",
+            "assigned_to": str(admin_id),
+        },
     )
     intervention_b_id = resp_b.json()["id"]
 
@@ -146,7 +149,7 @@ def test_list_interventions_filters_by_student_status_and_assignee(client, super
 def test_outcome_for_nonexistent_intervention_returns_404(client):
     token = _register(client, "missing-intervention-college")
     resp = client.post(
-        f"/risk/interventions/00000000-0000-0000-0000-000000000000/outcome",
+        "/risk/interventions/00000000-0000-0000-0000-000000000000/outcome",
         headers=_auth(token),
         json={"outcome": "unknown"},
     )

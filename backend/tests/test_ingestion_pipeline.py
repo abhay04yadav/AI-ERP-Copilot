@@ -6,7 +6,6 @@ client.post("/imports", ...) returns, the pipeline has already completed —
 no polling/sleeping needed.
 """
 
-from decimal import Decimal
 from io import BytesIO
 
 from sqlalchemy import text
@@ -280,7 +279,9 @@ def test_pipeline_loaded_row_has_correct_audit_actor(client, superuser_connectio
         ),
         {"rid": str(student_id)},
     ).scalar_one()
-    assert str(actor) == str(admin_user_id), "pipeline-loaded canonical row must record the importing user as audit actor"
+    assert str(actor) == str(admin_user_id), (
+        "pipeline-loaded canonical row must record the importing user as audit actor"
+    )
 
 
 def test_reimport_different_bytes_same_rows_no_new_canonical(client, superuser_connection):

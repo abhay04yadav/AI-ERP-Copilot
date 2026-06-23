@@ -36,7 +36,8 @@ def _student(conn, tenant_id, roll_no: str):
 
 def _course(conn, tenant_id, code: str):
     cid = conn.execute(
-        text("INSERT INTO courses (tenant_id, code, name) VALUES (:t, :c, :c) RETURNING id"), {"t": tenant_id, "c": code}
+        text("INSERT INTO courses (tenant_id, code, name) VALUES (:t, :c, :c) RETURNING id"),
+        {"t": tenant_id, "c": code},
     ).scalar_one()
     conn.commit()
     return cid
@@ -68,6 +69,7 @@ def _mark(conn, tenant_id, student_id, course_id, assessment_type, attempt, max_
             "mx": max_marks,
             "ob": obtained,
             "ca": created_at,
+            "ad": assessment_date,
         },
     )
     conn.commit()
@@ -79,7 +81,15 @@ def _fee(conn, tenant_id, student_id, term, fee_head, amount_due, amount_paid, d
             "INSERT INTO fees (tenant_id, student_id, term, fee_head, amount_due, amount_paid, due_date) "
             "VALUES (:t, :s, :term, :head, :due, :paid, :dd)"
         ),
-        {"t": tenant_id, "s": student_id, "term": term, "head": fee_head, "due": amount_due, "paid": amount_paid, "dd": due_date},
+        {
+            "t": tenant_id,
+            "s": student_id,
+            "term": term,
+            "head": fee_head,
+            "due": amount_due,
+            "paid": amount_paid,
+            "dd": due_date,
+        },
     )
     conn.commit()
 

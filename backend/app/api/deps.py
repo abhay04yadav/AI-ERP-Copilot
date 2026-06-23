@@ -28,8 +28,8 @@ def get_current_user(token: str | None = Depends(oauth2_scheme)) -> CurrentUser:
         raise UnauthorizedException()
     try:
         payload = decode_token(token)
-    except jwt.PyJWTError:
-        raise UnauthorizedException("Invalid or expired token.")
+    except jwt.PyJWTError as exc:
+        raise UnauthorizedException("Invalid or expired token.") from exc
     if payload.get("type") != "access":
         raise UnauthorizedException("Invalid token type.")
     return CurrentUser(

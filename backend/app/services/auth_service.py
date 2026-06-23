@@ -60,8 +60,8 @@ def login(session: Session, tenant_slug: str, email: str, password: str) -> Toke
 def refresh(session: Session, refresh_token: str) -> TokenResponse:
     try:
         payload = decode_token(refresh_token)
-    except jwt.PyJWTError:
-        raise UnauthorizedException("Invalid or expired refresh token.")
+    except jwt.PyJWTError as exc:
+        raise UnauthorizedException("Invalid or expired refresh token.") from exc
     if payload.get("type") != "refresh":
         raise UnauthorizedException("Invalid token type.")
 
