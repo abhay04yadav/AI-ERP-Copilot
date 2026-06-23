@@ -313,3 +313,16 @@ def test_reimport_different_bytes_same_rows_no_new_canonical(client, superuser_c
         )
     ).scalar_one()
     assert link_count == 1, "identity map must be reused, not re-created"
+
+
+def test_student_missing_roll_no_is_quarantined(client, superuser_connection):
+    token, source_id = _setup_student_import(client, "noroll-college")
+    content = (STUDENT_CSV_HEADER + ",No Roll Student,01/01/2003,M,noroll@test.edu,9000000010,2021\n").encode()
+
+    batch_id = _upload(client, token, source_id, "student", "f.csv", content)
+    body = _get_batch(client, token, batch_id)
+    assert body["row_count_quarantined"] == 1
+    assert body["row_count_loaded"] == 0
+
+    count = superuser_connection.execute(text("SELECT count(*) FROM students")).scalar_one()
+    assert count == 0
