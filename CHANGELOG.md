@@ -328,3 +328,154 @@ tenant-scoped tables.
   `app/core/audit.py` / `app/api/deps.py` documented above.
 - mypy is not configured anywhere in this repo (Phase 0/1 never added it
   either) — all new code carries full type hints regardless, per spec §14.
+
+## Phase 2 hardening — CHANGE_ORDER_Phase2_Hardening.md (complete)
+
+Four independent changes, applied as named, in separate commits, with tests
+written as each was implemented:
+
+### CHANGE 1 — academic-decline signal's time axis
+
+`internal_marks` (Phase 1, locked schema) had no real assessment date — the
+academic-decline signal ordered "latest"/"baseline" by `created_at`, which is
+import time, not assessment order. A college that bulk-imports a whole
+term's marks in one file got a meaningless "decline."
+
+Added an **optional** `internal_marks.assessment_date` column (migration
+`6bf2927b6b7a`). Wired through ingestion as an optional mapping target for
+`internal_mark` (`mapping.py`), with `normalizers.py::normalize_date` reused
+as its normalizer, and loaded onto the canonical row in both the new-row and
+existing-row-update paths of `canonical_loader.py::upsert_internal_mark`.
+
+`signals/academic.py`'s bulk query now orders by
+`COALESCE(assessment_date, created_at::date)`, tiebroken by `created_at` then
+`id`. **No-regression guarantee**: when no row in a student's marks has
+`assessment_date` set, `COALESCE` collapses to `created_at` for every row, so
+the ordering is identical to before this change —
+`test_academic_ordering_falls_back_to_created_at_when_no_assessment_date`
+asserts this with the exact dataset/expected values that predate CHANGE 1.
+
+### CHANGE 2 — validate `PUT /risk/config` payloads
+
+`RiskConfigUpdateRequest.config` was a bare `dict`: a missing key, a typo'd
+key, or `tier_cutoffs.watch >= high` reached `set_new_config()` unchecked,
+surfacing as a crash or nonsensical tiering on the *next* recompute rather
+than a 422 at the API boundary.
+
+Added `RiskConfigModel` (+ nested `RiskWeights`, `TierCutoffs`) to
+`schemas/risk.py`: `extra="forbid"` on every model, every numeric field
+range-checked, and a `model_validator` enforcing `watch < high`.
+`RiskConfigUpdateRequest.config` is now `RiskConfigModel`;
+`routes/risk.py::update_config` calls `payload.config.model_dump()` before
+handing it to the unchanged `set_new_config(session, tenant_id, dict, ...)`.
+`test_default_config_is_valid` guards against the shipped
+`DEFAULT_RISK_CONFIG` ever failing its own schema.
+
+### CHANGE 3 — surface risk-recompute failures on the import batch
+
+`_phase_risk_recompute` deliberately swallows recompute exceptions so a
+recompute failure never flips an already-`COMPLETED` import to `FAILED`
+(spec §10.3) — but that meant a partial/total recompute failure was
+previously invisible to anyone not reading the worker logs.
+
+Added `import_batches.risk_recompute_status` (`CHECK`'d to
+`ok`/`partial`/`failed`/`skipped`) and `risk_recompute_summary` (jsonb,
+migration `6bf2927b6b7a`, shared with CHANGE 1's column). 
+`_phase_risk_recompute` derives status from the `RecomputeSummary` (any
+per-student errors → `partial`; zero students evaluated → `skipped`;
+otherwise → `ok`; an exception escaping `recompute_for_import_batch`
+entirely → `failed`) and persists it via a new `_set_recompute_outcome()`,
+in its own session/transaction so a failure there can't reach back into the
+already-committed import. Exposed on `ImportBatchResponse`.
+
+### CHANGE 4 — mypy + ruff (dev-only, user-confirmed)
+
+Added `mypy==1.13.0` and `ruff==0.8.4` as a `dev` optional-dependency group
+(`backend/pyproject.toml`) — never a runtime dependency. Pragmatic config:
+ruff selects `E`/`F`/`I`/`B`/`UP` and ignores `B008` (FastAPI's `Depends()`
+default-argument pattern, the framework's intended DI mechanism, not a bug);
+mypy enables `disallow_untyped_defs`/`check_untyped_defs` with no plugins.
+
+**ruff**: 39 issues against the existing tree, all mechanical — unused
+imports/variables, `datetime.now(timezone.utc)` → `datetime.now(UTC)`
+(`UP017`), `isinstance(x, (int, float))` → `isinstance(x, int | float)`
+(`UP038`), a `for`-loop `yield` → `yield from` (`UP028`), a bare `raise` in
+an `except` → `raise ... from` (`B904`), and line-length wraps. All fixed;
+`ruff check app tests` is clean.
+
+**mypy**: 75 pre-existing errors against the existing tree. Per the change
+order's explicit instruction ("if a large number of pre-existing errors
+surface, STOP and report categories rather than mass-suppress"), this
+backlog is reported, not mass-fixed with `type: ignore`. Categories:
+
+- **~50 errors, one root cause**: `session.get(ImportBatch, ...)` returns
+  `ImportBatch | None` and is used unchecked for the rest of each pipeline
+  phase function in `services/ingestion/pipeline.py` (and similarly for
+  `Student | None` in `canonical_loader.py`). This is a Phase 0/1 invariant
+  — the caller always created the row earlier in the same transaction —
+  that mypy has no way to see. Fixing it properly means an `assert`/narrow
+  at each of ~15 call sites across a file this change order didn't name;
+  left as a follow-up, not done here.
+- **Untyped pre-existing functions** (`no-untyped-def`): `cleaning/
+  validators.py`, `resolution/identity.py`, `reconciliation/conflicts.py`,
+  `core/audit.py`, `canonical_loader.py`, `repositories/base.py`.
+- **Dynamic `type[Base]` dispatch losing attribute info** (`attr-defined`):
+  `repositories/base.py`'s generic `_model: type[T]` pattern, `core/
+  audit.py`'s `target.__class__` dispatch in the mapper-event hooks — the
+  same category of issue this session fixed in `engine.py`'s
+  `_ENTITY_MODEL_BY_TYPE`, but for two files outside this change order's
+  named scope.
+- **`Sequence` vs `list` return-type mismatches**: `routes/sources.py`,
+  `routes/mappings.py`, `routes/imports.py` return `.scalars().all()`
+  (`Sequence`) where the response model / type hint says `list` — the same
+  pattern this session fixed in `risk_repository.py` and `routes/risk.py`,
+  for three files outside this change order's named scope.
+- **One `callable` builtin used as a type annotation** in `normalizers.py`'s
+  `FIELD_NORMALIZERS: dict[str, dict[str, callable]]` (should be
+  `typing.Callable`).
+- **One FastAPI exception-handler signature mismatch** in `core/
+  exceptions.py` (`add_exception_handler`'s stub is imprecise about async
+  handlers — a known FastAPI/Starlette typing friction point).
+- **One `pydantic-settings` `Settings()` call-arg mismatch** in `core/
+  config.py` (fields are populated from the environment at runtime; mypy
+  can't see that from the call site).
+
+The handful of mypy errors that were direct fallout of this session's own
+typing work (`engine.py`'s `_persist_one`/`_student_ids_for_entity_rows`,
+`risk_repository.py`'s `list_at_risk`, `routes/risk.py`'s
+`_assessment_to_response`) are fixed, not reported.
+
+Added `.github/workflows/backend-ci.yml`: a `lint` job (ruff blocking, mypy
+`continue-on-error: true` until the backlog above is paid down) and a `test`
+job (`pytest`, relying on `testcontainers` to provision its own Postgres —
+no extra service config needed on `ubuntu-latest`).
+
+### Acceptance results
+
+Full suite: **101/101 passing** (89 Phase 0/1/2 + 12 new: 2 signal-ordering +
+2 ingestion tests for CHANGE 1, 4 API + 1 scoring test for CHANGE 2, 3 engine
+tests for CHANGE 3). `test_rls_coverage.py` green, unchanged.
+
+### A bug found and fixed along the way (not named in the change order)
+
+Writing CHANGE 1's ingestion tests surfaced a pre-existing bug: `internal_mark`
+and `fee` rows have `Decimal` fields (`normalize_number`'s output) that were
+being passed straight into `StagingRecord.cleaned_payload`, a `jsonb` column
+— psycopg's JSON encoder doesn't know how to serialize `Decimal`, so every
+such row failed at the cleaning phase. Same category as the Part A
+audit-actor bug: caught by acceptance tests, not by the change order, fixed
+and called out rather than worked around. Added
+`normalizers.py::to_jsonable()`, applied only at the JSONB-storage boundary
+in `pipeline.py::_phase_clean`, never to the dict `validators.py` validates
+(its range checks need real `Decimal`/numeric types).
+
+### Confirmations
+
+- **No new runtime dependencies.** `mypy`/`ruff` are a `dev`-only
+  optional-dependency group, confirmed with the user before adding (CHANGE
+  4 required explicit confirmation per the change order).
+- **No changes outside** the files named per change above, plus the one
+  shared Alembic migration (`6bf2927b6b7a`, CHANGE 1 + CHANGE 3 schema) and
+  the Decimal/JSONB bugfix called out above.
+- Six commits: the shared migration, CHANGE 1, CHANGE 2, CHANGE 3, CHANGE 4,
+  and the Decimal/JSONB bugfix — each independently reviewable.
