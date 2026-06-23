@@ -260,3 +260,48 @@ def _student_id_for_roll(superuser_connection, tenant_id, roll_no: str):
     return superuser_connection.execute(
         text("SELECT id FROM students WHERE tenant_id = :t AND canonical_roll_no = :r"), {"t": tenant_id, "r": roll_no}
     ).scalar_one()
+
+
+def _valid_config(client, token) -> dict:
+    return client.get("/risk/config", headers=_auth(token)).json()["config"]
+
+
+def test_put_config_rejects_missing_key(client, superuser_connection):
+    token = _register(client, "api-cfg-missing-college")
+    config = _valid_config(client, token)
+    del config["fee_overdue_days"]
+
+    resp = client.put("/risk/config", headers=_auth(token), json={"config": config})
+    assert resp.status_code == 422
+
+    after = client.get("/risk/config", headers=_auth(token)).json()
+    assert after["version"] == 1  # unchanged
+
+
+def test_put_config_rejects_watch_ge_high(client, superuser_connection):
+    token = _register(client, "api-cfg-cutoffs-college")
+    config = _valid_config(client, token)
+    config["tier_cutoffs"] = {"watch": 60, "high": 50}
+
+    resp = client.put("/risk/config", headers=_auth(token), json={"config": config})
+    assert resp.status_code == 422
+
+
+def test_put_config_rejects_unknown_key(client, superuser_connection):
+    token = _register(client, "api-cfg-typo-college")
+    config = _valid_config(client, token)
+    config["attendance_threshhold_pct"] = 75  # typo'd key, extra="forbid" must reject it
+
+    resp = client.put("/risk/config", headers=_auth(token), json={"config": config})
+    assert resp.status_code == 422
+
+
+def test_put_config_accepts_valid_update(client, superuser_connection):
+    token = _register(client, "api-cfg-valid-college")
+    config = _valid_config(client, token)
+    config["attendance_threshold_pct"] = 80
+
+    resp = client.put("/risk/config", headers=_auth(token), json={"config": config})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["version"] == 2
+    assert resp.json()["config"]["attendance_threshold_pct"] == 80

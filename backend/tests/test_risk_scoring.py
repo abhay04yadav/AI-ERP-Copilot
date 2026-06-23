@@ -71,3 +71,12 @@ def test_single_low_weight_finding_below_watch_cutoff_tiers_low():
     score = score_findings(findings)
     assert score == 15.0
     assert tier_for_score(score, CONFIG) == "low"
+
+
+def test_default_config_is_valid():
+    """Phase 2 hardening CHANGE 2c: the shipped default must always satisfy
+    its own validation schema."""
+    from app.schemas.risk import RiskConfigModel
+    from app.services.risk.config import DEFAULT_RISK_CONFIG
+
+    RiskConfigModel(**DEFAULT_RISK_CONFIG)

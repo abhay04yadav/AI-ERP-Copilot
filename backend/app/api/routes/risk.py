@@ -184,7 +184,9 @@ def update_config(
 ) -> RiskConfigResponse:
     if current_user.role != "admin":
         raise ForbiddenException("Only admin may update the risk config.")
-    config_row = set_new_config(session, current_user.tenant_id, payload.config, created_by=current_user.user_id)
+    config_row = set_new_config(
+        session, current_user.tenant_id, payload.config.model_dump(), created_by=current_user.user_id
+    )
     return RiskConfigResponse(
         id=config_row.id,
         version=config_row.version,

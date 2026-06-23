@@ -1,7 +1,53 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+class RiskWeights(BaseModel):
+    """Mirrors DEFAULT_RISK_CONFIG["weights"] (spec §6.1). Coupled to rule-set
+    v1's five codes -- when a future rule is added, this model must be
+    updated alongside it (Phase 2 hardening CHANGE 2)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ATTENDANCE_BELOW_THRESHOLD: float = Field(ge=0)
+    ATTENDANCE_DECLINING: float = Field(ge=0)
+    ACADEMIC_FAILING_INTERNALS: float = Field(ge=0)
+    ACADEMIC_DECLINE: float = Field(ge=0)
+    FEE_OVERDUE: float = Field(ge=0)
+
+
+class TierCutoffs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    watch: float = Field(ge=0, le=100)
+    high: float = Field(ge=0, le=100)
+
+    @model_validator(mode="after")
+    def _watch_below_high(self) -> "TierCutoffs":
+        if self.watch >= self.high:
+            raise ValueError("tier_cutoffs.watch must be strictly less than high")
+        return self
+
+
+class RiskConfigModel(BaseModel):
+    """Validates the shape of risk_configs.config on PUT /risk/config (spec
+    §6.1, Phase 2 hardening CHANGE 2) -- a malformed admin update must never
+    reach set_new_config and poison every later recompute with a KeyError
+    deep in scoring."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    attendance_threshold_pct: float = Field(ge=0, le=100)
+    attendance_min_sessions: int = Field(ge=0)
+    attendance_trend_window: int = Field(ge=1)
+    attendance_decline_points: float = Field(ge=0, le=100)
+    academic_fail_pct: float = Field(ge=0, le=100)
+    academic_decline_points: float = Field(ge=0, le=100)
+    fee_overdue_days: int = Field(ge=0)
+    weights: RiskWeights
+    tier_cutoffs: TierCutoffs
 
 
 class RiskFindingResponse(BaseModel):
@@ -65,7 +111,7 @@ class RiskConfigResponse(BaseModel):
 
 
 class RiskConfigUpdateRequest(BaseModel):
-    config: dict
+    config: RiskConfigModel
 
 
 class InterventionCreateRequest(BaseModel):
