@@ -281,3 +281,35 @@ def test_pipeline_loaded_row_has_correct_audit_actor(client, superuser_connectio
         {"rid": str(student_id)},
     ).scalar_one()
     assert str(actor) == str(admin_user_id), "pipeline-loaded canonical row must record the importing user as audit actor"
+
+
+def test_reimport_different_bytes_same_rows_no_new_canonical(client, superuser_connection):
+    token, source_id = _setup_student_import(client, "reimport-college")
+
+    file1 = (STUDENT_CSV_HEADER + "CS101,John Doe,12/05/2003,M,john@test.edu,9876543210,2021\n").encode()
+    # Same logical row + an extra UNMAPPED column => different bytes (hash differs, pipeline re-runs)
+    # but identical mapped/canonical data.
+    file2 = (
+        STUDENT_CSV_HEADER.rstrip("\n") + ",Notes\n"
+        + "CS101,John Doe,12/05/2003,M,john@test.edu,9876543210,2021,ignore-me\n"
+    ).encode()
+
+    b1 = _upload(client, token, source_id, "student", "f1.csv", file1)
+    assert _get_batch(client, token, b1)["status"] == "COMPLETED"
+
+    b2 = _upload(client, token, source_id, "student", "f2.csv", file2)
+    assert b2 != b1, "different bytes must NOT be hash-deduped — the pipeline must actually re-run"
+    assert _get_batch(client, token, b2)["status"] == "COMPLETED"
+
+    student_count = superuser_connection.execute(
+        text("SELECT count(*) FROM students WHERE canonical_roll_no = 'CS101'")
+    ).scalar_one()
+    assert student_count == 1, "row-level upsert must update in place, not duplicate"
+
+    link_count = superuser_connection.execute(
+        text(
+            "SELECT count(*) FROM entity_identity_map "
+            "WHERE entity_type = 'student' AND source_id = 'CS101'"
+        )
+    ).scalar_one()
+    assert link_count == 1, "identity map must be reused, not re-created"
