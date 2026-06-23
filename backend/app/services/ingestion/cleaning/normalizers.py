@@ -206,6 +206,7 @@ FIELD_NORMALIZERS: dict[str, dict[str, callable]] = {
         "attempt": normalize_int,
         "max_marks": normalize_number,
         "obtained": normalize_number,
+        "assessment_date": normalize_date,
     },
     "fee": {
         "roll_no": normalize_roll_no,

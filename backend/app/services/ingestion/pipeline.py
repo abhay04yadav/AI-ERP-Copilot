@@ -33,7 +33,7 @@ from app.core.logging import tenant_id_ctx
 from app.core.rls import set_tenant_context
 from app.core.storage import get_storage_backend
 from app.models.ingestion import ColumnMapping, ImportBatch, RawRecord, StagingRecord
-from app.services.ingestion.cleaning.normalizers import clean_payload
+from app.services.ingestion.cleaning.normalizers import clean_payload, to_jsonable
 from app.services.ingestion.cleaning.validators import validate_record
 from app.services.ingestion.connectors.csv_excel import CsvExcelConnector
 from app.services.ingestion.loading import canonical_loader
@@ -150,7 +150,7 @@ def _phase_clean(session: Session, tenant_id: UUID, import_batch_id: UUID) -> No
                     tenant_id=tenant_id,
                     import_batch_id=import_batch_id,
                     entity_type=batch.entity_type,
-                    cleaned_payload=cleaned,
+                    cleaned_payload=to_jsonable(cleaned),
                     validation_status="quarantined" if errors else "valid",
                     validation_errors={"errors": errors} if errors else None,
                 )
