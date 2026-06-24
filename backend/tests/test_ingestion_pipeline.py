@@ -8,7 +8,12 @@ no polling/sleeping needed.
 
 from io import BytesIO
 
+import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
+
+from app.core.rls import set_tenant_context
+from app.models.canonical import Fee, InternalMark
 
 STUDENT_MAPPING = {
     "canonical_roll_no": "Roll No",
@@ -405,3 +410,102 @@ def test_internal_mark_without_assessment_date_mapping_loads_fine_with_null(clie
         text("SELECT assessment_date FROM internal_marks WHERE tenant_id = :t"), {"t": tenant_id}
     ).scalar_one()
     assert assessment_date is None
+
+
+def _tenant_for_not_null_test(conn, slug: str):
+    tid = conn.execute(
+        text("INSERT INTO tenants (name, slug) VALUES (:s, :s) RETURNING id"), {"s": slug}
+    ).scalar_one()
+    conn.commit()
+    return tid
+
+
+def _student_for_not_null_test(conn, tenant_id, roll_no: str):
+    sid = conn.execute(
+        text("INSERT INTO students (tenant_id, canonical_roll_no, name) VALUES (:t, :r, :r) RETURNING id"),
+        {"t": tenant_id, "r": roll_no},
+    ).scalar_one()
+    conn.commit()
+    return sid
+
+
+def _course_for_not_null_test(conn, tenant_id, code: str):
+    cid = conn.execute(
+        text("INSERT INTO courses (tenant_id, code, name) VALUES (:t, :c, :c) RETURNING id"),
+        {"t": tenant_id, "c": code},
+    ).scalar_one()
+    conn.commit()
+    return cid
+
+
+def test_internal_mark_requires_student_id_at_the_db_layer(superuser_connection, app_session_factory):
+    """Phase 2 hardening part 2: internal_marks.student_id is now NOT NULL.
+    The application itself can never hit this -- canonical_loader.py::
+    upsert_internal_mark always resolves a student first and raises
+    UnresolvedReferenceError (quarantining the row) otherwise -- so this
+    proves the DB-level backstop directly, for any write path that bypasses
+    the loader."""
+    tenant_id = _tenant_for_not_null_test(superuser_connection, "notnull-mark-student-college")
+    course_id = _course_for_not_null_test(superuser_connection, tenant_id, "NN101")
+
+    session = app_session_factory()
+    try:
+        set_tenant_context(session, tenant_id)
+        session.add(
+            InternalMark(
+                tenant_id=tenant_id,
+                student_id=None,
+                course_id=course_id,
+                assessment_type="CT1",
+                max_marks=100,
+                obtained=50,
+            )
+        )
+        with pytest.raises(IntegrityError):
+            session.flush()
+    finally:
+        session.close()
+
+
+def test_internal_mark_requires_course_id_at_the_db_layer(superuser_connection, app_session_factory):
+    """Phase 2 hardening part 2: internal_marks.course_id is now NOT NULL --
+    see test_internal_mark_requires_student_id_at_the_db_layer above."""
+    tenant_id = _tenant_for_not_null_test(superuser_connection, "notnull-mark-course-college")
+    student_id = _student_for_not_null_test(superuser_connection, tenant_id, "NN001")
+
+    session = app_session_factory()
+    try:
+        set_tenant_context(session, tenant_id)
+        session.add(
+            InternalMark(
+                tenant_id=tenant_id,
+                student_id=student_id,
+                course_id=None,
+                assessment_type="CT1",
+                max_marks=100,
+                obtained=50,
+            )
+        )
+        with pytest.raises(IntegrityError):
+            session.flush()
+    finally:
+        session.close()
+
+
+def test_fee_requires_student_id_at_the_db_layer(superuser_connection, app_session_factory):
+    """Phase 2 hardening part 2: fees.student_id is now NOT NULL --
+    canonical_loader.py::upsert_fee always resolves a student first and
+    raises UnresolvedReferenceError (quarantining the row) otherwise; this
+    proves the DB-level backstop directly. fees has no course_id column at
+    all (confirmed against app/models/canonical.py before writing the
+    migration), so only student_id is touched on this table."""
+    tenant_id = _tenant_for_not_null_test(superuser_connection, "notnull-fee-student-college")
+
+    session = app_session_factory()
+    try:
+        set_tenant_context(session, tenant_id)
+        session.add(Fee(tenant_id=tenant_id, student_id=None, term="T1", fee_head="tuition"))
+        with pytest.raises(IntegrityError):
+            session.flush()
+    finally:
+        session.close()

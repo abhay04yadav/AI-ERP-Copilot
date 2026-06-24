@@ -126,12 +126,15 @@ class InternalMark(PKMixin, TenantMixin, TimestampMixin, SoftDeleteMixin, Proven
         ),
     )
 
-    # Nullable exactly as written in spec §6 ("student_id uuid, course_id uuid",
-    # no NOT NULL) — note this means the unique constraint above doesn't
-    # enforce uniqueness across multiple NULL student_id/course_id rows
-    # (Postgres treats NULLs as distinct), called out in CHANGELOG.md.
-    student_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("students.id"), nullable=True)
-    course_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("courses.id"), nullable=True)
+    # Phase 2 hardening part 2: NOT NULL enforced (was nullable per spec §6's
+    # literal "student_id uuid, course_id uuid", which left the unique
+    # constraint above unable to prevent duplicates across NULL rows --
+    # Postgres treats every NULL as distinct. The loader already never
+    # constructs a row without a resolved student/course (canonical_loader.py
+    # ::upsert_internal_mark raises UnresolvedReferenceError otherwise, and
+    # the pipeline quarantines on that); this is the DB-level backstop.
+    student_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("students.id"), nullable=False)
+    course_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("courses.id"), nullable=False)
     assessment_type: Mapped[str] = mapped_column(nullable=False)
     attempt: Mapped[int] = mapped_column(nullable=False, default=1, server_default=text("1"))
     max_marks: Mapped[Decimal] = mapped_column(nullable=False)
@@ -148,8 +151,8 @@ class Fee(PKMixin, TenantMixin, TimestampMixin, SoftDeleteMixin, ProvenanceMixin
     __tablename__ = "fees"
     __table_args__ = (UniqueConstraint("tenant_id", "student_id", "term", "fee_head", name="uq_fees_natural_key"),)
 
-    # Nullable exactly as written in spec §6 — see InternalMark note above.
-    student_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("students.id"), nullable=True)
+    # Phase 2 hardening part 2: NOT NULL enforced -- see InternalMark note above.
+    student_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("students.id"), nullable=False)
     term: Mapped[str] = mapped_column(nullable=False)
     fee_head: Mapped[str] = mapped_column(nullable=False)
     amount_due: Mapped[Decimal | None] = mapped_column(nullable=True)
