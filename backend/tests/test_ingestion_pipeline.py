@@ -6,6 +6,7 @@ client.post("/imports", ...) returns, the pipeline has already completed —
 no polling/sleeping needed.
 """
 
+from decimal import Decimal
 from io import BytesIO
 
 import pytest
@@ -488,6 +489,46 @@ def test_internal_mark_requires_course_id_at_the_db_layer(superuser_connection, 
         )
         with pytest.raises(IntegrityError):
             session.flush()
+    finally:
+        session.close()
+
+
+def test_internal_mark_with_decimal_values_writes_audit_row_without_error(superuser_connection, app_session_factory):
+    """Phase 3 §C.1 bug found and fixed along the way (same category as the
+    Decimal/JSONB cleaned_payload bug, Phase 2 hardening part 1): the audit
+    hook's _serialize() didn't handle Decimal, so any direct ORM write of an
+    InternalMark/Fee with a real Decimal value (e.g. scripts/seed_demo.py's
+    canonical writes) crashed on flush trying to JSON-encode the audit_log
+    snapshot. The ingestion pipeline never hit this -- canonical_loader.py's
+    callers always pass StagingRecord.cleaned_payload, which to_jsonable()
+    has already float-ified -- so this DB-layer test exercises the path that
+    does: constructing InternalMark with genuine Decimal max_marks/obtained,
+    bypassing the loader entirely, the same way seed_demo.py does."""
+    tenant_id = _tenant_for_not_null_test(superuser_connection, "decimal-audit-college")
+    course_id = _course_for_not_null_test(superuser_connection, tenant_id, "DA101")
+    student_id = _student_for_not_null_test(superuser_connection, tenant_id, "DA001")
+
+    session = app_session_factory()
+    try:
+        set_tenant_context(session, tenant_id)
+        mark = InternalMark(
+            tenant_id=tenant_id,
+            student_id=student_id,
+            course_id=course_id,
+            assessment_type="CT1",
+            max_marks=Decimal(100),
+            obtained=Decimal(70),
+        )
+        session.add(mark)
+        session.flush()  # must not raise TypeError: Object of type Decimal is not JSON serializable
+
+        audit_row = session.execute(
+            text("SELECT new_value FROM audit_log WHERE tenant_id = :t AND record_id = :r"),
+            {"t": tenant_id, "r": mark.id},
+        ).scalar_one()
+        assert audit_row["max_marks"] == 100.0
+        assert audit_row["obtained"] == 70.0
+        session.commit()
     finally:
         session.close()
 

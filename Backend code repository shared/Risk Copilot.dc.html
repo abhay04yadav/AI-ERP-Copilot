@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:'Public Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;background:#E9EDF0;}
+  button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  input{font:inherit}
+  :focus-visible{outline:2px solid #0A656D;outline-offset:2px;border-radius:4px}
+  ::placeholder{color:#9AA4B1}
+  @keyframes om-fade{from{opacity:0}to{opacity:1}}
+  @keyframes om-pop{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+  @keyframes om-toast{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  @media (max-width:860px){
+    .app-rail{display:none!important}
+    .main-pad{padding:20px 16px!important}
+    .s360-grid{grid-template-columns:1fr!important}
+    .header-grid{grid-template-columns:1fr!important;gap:20px!important}
+    .top-search{display:none!important}
+    .filters-row{flex-wrap:wrap!important;gap:12px!important}
+    .row-grid{grid-template-columns:6px 1fr!important}
+    .row-score{grid-column:2!important;flex-direction:row!important;align-items:center!important;gap:14px!important;margin-top:12px!important}
+  }
+</style>
+</helmet>
+
+<div style="display:flex;min-height:100vh;color:#161E29;">
+
+  <!-- ================= LEFT RAIL ================= -->
+  <aside class="app-rail" style="width:230px;flex:none;background:#fff;border-right:1px solid #E1E7EC;display:flex;flex-direction:column;padding:20px 16px;position:sticky;top:0;height:100vh;">
+    <div style="display:flex;align-items:center;gap:11px;padding:4px 6px 0;">
+      <span style="{{ markStyle }}">C</span>
+      <div style="line-height:1.1;">
+        <div style="font-weight:800;font-size:15px;letter-spacing:-.01em;">Copilot</div>
+        <div style="font-size:11px;color:#8A95A2;font-weight:600;margin-top:1px;">College welfare</div>
+      </div>
+    </div>
+
+    <nav style="margin-top:26px;display:flex;flex-direction:column;gap:3px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.09em;color:#A2ACB8;padding:0 8px 8px;">WORKSPACE</div>
+      <button onClick="{{ goBoard }}" style="{{ navBoardStyle }}">
+        <span style="width:17px;display:inline-flex;justify-content:center;">▦</span> Risk Board
+      </button>
+      <button onClick="{{ goDashboard }}" style="{{ navDashStyle }}">
+        <span style="width:17px;display:inline-flex;justify-content:center;">◳</span> Dashboard
+        <span style="margin-left:auto;font-size:9.5px;font-weight:700;letter-spacing:.04em;color:#B3BCC6;border:1px solid #E1E7EC;border-radius:5px;padding:1px 5px;">LEADERSHIP</span>
+      </button>
+    </nav>
+
+    <div style="flex:1;"></div>
+
+    <div style="border-top:1px solid #EDF1F4;padding-top:14px;display:flex;align-items:center;gap:11px;">
+      <span style="width:36px;height:36px;border-radius:50%;background:#E3F1F2;color:#0A656D;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex:none;">MI</span>
+      <div style="line-height:1.2;min-width:0;">
+        <div style="font-weight:700;font-size:13px;">Dr. Meera Iyer</div>
+        <div style="font-size:11px;color:#8A95A2;font-weight:500;">Mentor · CSE 3rd yr</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <main style="flex:1;min-width:0;display:flex;flex-direction:column;">
+
+    <!-- stale banner -->
+    <sc-if value="{{ stale }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#FBF3DE;border-bottom:1px solid #EBDCB4;padding:10px 32px;display:flex;align-items:center;gap:10px;font-size:13px;color:#7A5A12;">
+        <span style="width:18px;height:18px;border-radius:50%;background:#E2BE5E;color:#5C420C;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none;">!</span>
+        <span style="font-weight:600;">Risk scores may be out of date.</span>
+        <span style="color:#9A7A30;">Last import finished partially — 2 of 3 sources updated.</span>
+        <button style="margin-left:auto;font-weight:700;font-size:12.5px;color:#7A5A12;text-decoration:underline;text-underline-offset:2px;">Re-run import</button>
+      </div>
+    </sc-if>
+
+    <!-- ====== BOARD SCREEN ====== -->
+    <sc-if value="{{ isBoard }}" hint-placeholder-val="{{ true }}">
+    <div class="main-pad" data-screen-label="Risk Board" style="padding:30px 36px 60px;max-width:1080px;width:100%;">
+
+      <header style="display:flex;align-items:flex-start;justify-content:space-between;gap:20px;">
+        <div>
+          <h1 style="margin:0;font-size:25px;font-weight:800;letter-spacing:-.02em;">At-risk students</h1>
+          <p style="margin:6px 0 0;font-size:13.5px;color:#6B7686;font-weight:500;">CSE 3rd year · Sections A &amp; B · <span style="font-variant-numeric:tabular-nums;">{{ cohortCount }}</span> flagged · <span style="color:#8A95A2;">Updated 2 hrs ago</span></p>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;position:relative;">
+          <div class="top-search" style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #E1E7EC;border-radius:9px;padding:0 11px;min-width:248px;">
+            <span style="font-size:14px;color:#9AA4B1;">⌕</span>
+            <input value="{{ search }}" onChange="{{ setSearch }}" placeholder="Search name or roll number" style="border:none;background:none;outline:none;padding:10px 0;font-size:13px;color:#16202C;width:100%;" />
+            <sc-if value="{{ hasSearch }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ clearSearch }}" aria-label="Clear search" style="color:#9AA4B1;font-size:13px;flex:none;">✕</button>
+            </sc-if>
+          </div>
+          <button onClick="{{ toggleAlerts }}" aria-label="Alerts" style="{{ bellStyle }}">
+            ⚑
+            <sc-if value="{{ alertBadge }}" hint-placeholder-val="{{ true }}">
+              <span style="position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:#B42318;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;border:2px solid #E9EDF0;">{{ alertCount }}</span>
+            </sc-if>
+          </button>
+
+          <sc-if value="{{ alertsOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:50px;right:0;width:340px;background:#fff;border:1px solid #E1E7EC;border-radius:13px;box-shadow:0 16px 44px rgba(20,30,45,.2);z-index:45;overflow:hidden;animation:om-pop .16s ease;">
+              <div style="padding:14px 16px;border-bottom:1px solid #EDF1F4;display:flex;align-items:center;justify-content:space-between;">
+                <div>
+                  <div style="font-weight:800;font-size:14px;">Risk alerts</div>
+                  <div style="font-size:11.5px;color:#8A95A2;font-weight:600;">Students who crossed into a higher tier</div>
+                </div>
+                <button onClick="{{ closeAlerts }}" aria-label="Close" style="width:26px;height:26px;border-radius:7px;color:#9AA4B1;font-size:14px;">✕</button>
+              </div>
+              <div style="max-height:330px;overflow:auto;">
+                <sc-for list="{{ alertItems }}" as="a" hint-placeholder-count="3">
+                  <div role="button" tabindex="0" onClick="{{ a.onOpen }}" style="display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid #F2F5F7;cursor:pointer;">
+                    <div style="min-width:0;flex:1;">
+                      <div style="font-weight:700;font-size:13.5px;color:#16202C;">{{ a.name }}</div>
+                      <div style="font-size:11px;color:#9AA4B1;font-weight:600;margin-top:1px;font-variant-numeric:tabular-nums;">{{ a.meta }} · {{ a.when }}</div>
+                      <div style="margin-top:7px;"><span style="{{ a.transStyle }}"><span style="{{ a.shapeStyle }}"></span>{{ a.transition }}</span></div>
+                    </div>
+                    <span style="{{ a.scoreStyle }}">{{ a.score }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </header>
+
+      <!-- filters -->
+      <div class="filters-row" style="display:flex;align-items:center;gap:14px;margin-top:22px;">
+        <div style="display:flex;align-items:center;gap:7px;">
+          <span style="font-size:11px;font-weight:700;letter-spacing:.06em;color:#A2ACB8;margin-right:2px;">TIER</span>
+          <button onClick="{{ toggleHigh }}" style="{{ chipHigh }}"><span style="width:8px;height:8px;background:#B42318;flex:none;"></span>High</button>
+          <button onClick="{{ toggleWatch }}" style="{{ chipWatch }}"><span style="width:8px;height:8px;background:#B07A12;transform:rotate(45deg);flex:none;"></span>Watch</button>
+          <button onClick="{{ toggleLow }}" style="{{ chipLow }}"><span style="width:8px;height:8px;border-radius:50%;background:#1F7A4D;flex:none;"></span>Low</button>
+        </div>
+        <div style="width:1px;height:22px;background:#DDE4E9;"></div>
+        <div style="display:flex;align-items:center;gap:0;background:#fff;border:1px solid #E1E7EC;border-radius:9px;padding:3px;">
+          <button onClick="{{ typeAll }}" style="{{ segAll }}">All</button>
+          <button onClick="{{ typeAtt }}" style="{{ segAtt }}">Attendance</button>
+          <button onClick="{{ typeAcad }}" style="{{ segAcad }}">Academic</button>
+          <button onClick="{{ typeFee }}" style="{{ segFee }}">Fee</button>
+        </div>
+        <div style="margin-left:auto;font-size:12.5px;color:#8A95A2;font-weight:600;font-variant-numeric:tabular-nums;">{{ resultCount }} shown</div>
+      </div>
+
+      <!-- error state -->
+      <sc-if value="{{ isError }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:40px;background:#fff;border:1px solid #E7ECF0;border-radius:12px;padding:48px 32px;text-align:center;max-width:520px;margin-left:auto;margin-right:auto;">
+          <div style="width:46px;height:46px;border-radius:12px;background:#FBEAE8;color:#B42318;font-size:22px;display:flex;align-items:center;justify-content:center;margin:0 auto;">⚠</div>
+          <h2 style="margin:18px 0 6px;font-size:18px;font-weight:700;">Risk scores didn't load</h2>
+          <p style="margin:0 auto;font-size:14px;color:#6B7686;max-width:360px;line-height:1.5;">The risk service didn't respond. Your students are safe in the system — only this view failed. Try again in a moment.</p>
+          <button onClick="{{ retry }}" style="{{ primaryBtnStyle }}margin-top:22px;">Try again</button>
+        </div>
+      </sc-if>
+
+      <!-- empty cohort -->
+      <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:40px;background:#fff;border:1px solid #E7ECF0;border-radius:12px;padding:48px 32px;text-align:center;max-width:520px;margin-left:auto;margin-right:auto;">
+          <div style="width:46px;height:46px;border-radius:12px;background:#E7F4EC;color:#1F7A4D;font-size:22px;display:flex;align-items:center;justify-content:center;margin:0 auto;">✓</div>
+          <h2 style="margin:18px 0 6px;font-size:18px;font-weight:700;">Nobody in your cohort is flagged</h2>
+          <p style="margin:0 auto;font-size:14px;color:#6B7686;max-width:380px;line-height:1.5;">No students in CSE 3rd year, Sections A &amp; B are at risk right now. We'll surface anyone here the moment their attendance, marks, or fees cross a threshold.</p>
+        </div>
+      </sc-if>
+
+      <!-- filter empty -->
+      <sc-if value="{{ showFilterEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:34px;background:#fff;border:1px dashed #D7DEE4;border-radius:12px;padding:34px;text-align:center;">
+          <p style="margin:0;font-size:14px;color:#6B7686;">No students match these filters.</p>
+          <button onClick="{{ clearFilters }}" style="{{ linkBtnStyle }}margin-top:10px;">Clear filters</button>
+        </div>
+      </sc-if>
+
+      <!-- list -->
+      <sc-if value="{{ showList }}" hint-placeholder-val="{{ true }}">
+      <div style="margin-top:18px;display:flex;flex-direction:column;gap:12px;">
+        <sc-for list="{{ students }}" as="s" hint-placeholder-count="4">
+          <div role="button" tabindex="0" onClick="{{ s.onOpen }}" onKeyDown="{{ s.onKey }}" class="row-grid" style="{{ s.rowStyle }}">
+            <span style="{{ s.accentBar }}"></span>
+            <div style="min-width:0;">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <span style="font-weight:700;font-size:15.5px;color:#16202C;">{{ s.name }}</span>
+                <span style="font-weight:600;font-size:12px;color:#828D9B;font-variant-numeric:tabular-nums;">{{ s.roll }}</span>
+                <sc-if value="{{ s.isMinor }}" hint-placeholder-val="{{ false }}">
+                  <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:6px;background:#EEF1F8;color:#3A4ED6;font-weight:700;font-size:10px;letter-spacing:.03em;">◆ MINOR</span>
+                </sc-if>
+              </div>
+              <div style="margin-top:12px;display:flex;flex-direction:column;gap:11px;">
+                <sc-for list="{{ s.findings }}" as="f" hint-placeholder-count="2">
+                  <div>
+                    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;">
+                      <span style="font-size:13px;color:#3A4654;font-weight:500;min-width:0;"><span style="font-weight:700;font-size:9.5px;letter-spacing:.06em;color:#A2ACB8;margin-right:7px;">{{ f.typeTag }}</span>{{ f.message }}</span>
+                      <span style="{{ f.metricStyleSmall }}">{{ f.metricBig }}</span>
+                    </div>
+                    <sc-if value="{{ f.isMeter }}" hint-placeholder-val="{{ false }}">
+                      <div style="margin-top:5px;position:relative;height:5px;background:#EAEEF1;border-radius:3px;">
+                        <span style="{{ f.fillStyle }}"></span>
+                        <span style="{{ f.tickStyle }}"></span>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div class="row-score" style="display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;min-width:92px;gap:10px;">
+              <div style="text-align:right;">
+                <span style="{{ s.tierBadgeStyle }}"><span style="{{ s.shapeStyle }}"></span>{{ s.tierLabel }}</span>
+                <div style="{{ s.scoreStyle }}">{{ s.score }}</div>
+              </div>
+              <button onClick="{{ s.onLog }}" style="{{ logGhostStyle }}">Log intervention</button>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <!-- ====== STUDENT 360 SCREEN ====== -->
+    <sc-if value="{{ isStudent }}" hint-placeholder-val="{{ false }}">
+    <div class="main-pad" data-screen-label="Student 360" style="padding:24px 36px 70px;max-width:1080px;width:100%;">
+      <button onClick="{{ goBoard }}" style="{{ linkBtnStyle }}display:inline-flex;align-items:center;gap:6px;margin-bottom:18px;">← At-risk students</button>
+
+      <!-- identity + score header -->
+      <div class="header-grid" style="display:grid;grid-template-columns:1.25fr 1fr;gap:28px;background:#fff;border:1px solid #E7ECF0;border-radius:14px;padding:26px 28px;">
+        <div>
+          <div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap;">
+            <h1 style="margin:0;font-size:24px;font-weight:800;letter-spacing:-.02em;">{{ cur.name }}</h1>
+            <span style="{{ cur.minorBadgeStyle }}">{{ cur.minorLabel }}</span>
+          </div>
+          <p style="margin:9px 0 0;font-size:13.5px;color:#6B7686;font-weight:500;font-variant-numeric:tabular-nums;">{{ cur.roll }} · {{ cur.programme }} · Admission {{ cur.admissionYear }}</p>
+          <div style="margin-top:18px;display:flex;gap:9px;flex-wrap:wrap;">
+            <button onClick="{{ openLogCurrent }}" style="{{ primaryBtnStyle }}">Log intervention</button>
+          </div>
+        </div>
+        <div style="border-left:1px solid #EDF1F4;padding-left:26px;" class="score-block">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.09em;color:#A2ACB8;">RISK SCORE</div>
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:8px;">
+            <div style="display:flex;align-items:flex-end;gap:5px;">
+              <span style="{{ cur.scoreStyle }}">{{ cur.score }}</span>
+              <span style="font-weight:600;font-size:15px;color:#9AA4B1;padding-bottom:6px;">/100</span>
+            </div>
+            <span style="{{ cur.tierBadgeStyle }}"><span style="{{ cur.shapeStyle }}"></span>{{ cur.tierLabel }} RISK</span>
+          </div>
+          <div style="margin-top:18px;">
+            <div style="position:relative;height:9px;border-radius:5px;overflow:hidden;display:flex;">
+              <span style="flex:25;background:#E7F4EC;"></span><span style="flex:25;background:#FAF0DC;"></span><span style="flex:50;background:#FBEAE8;"></span>
+              <span style="{{ cur.markerStyle }}"></span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:600;color:#9AA4B1;margin-top:6px;font-variant-numeric:tabular-nums;"><span>low</span><span>watch 25</span><span>high 50</span><span>100</span></div>
+          </div>
+          <div style="margin-top:12px;font-size:12px;color:#8A95A2;font-weight:500;">Computed {{ cur.computed }} · advisory, you decide</div>
+        </div>
+      </div>
+
+      <div class="s360-grid" style="display:grid;grid-template-columns:1.3fr 1fr;gap:20px;margin-top:20px;align-items:start;">
+
+        <!-- findings -->
+        <section style="background:#fff;border:1px solid #E7ECF0;border-radius:14px;padding:22px 24px;">
+          <h2 style="margin:0 0 4px;font-size:16px;font-weight:700;">Why {{ cur.firstName }} is {{ cur.tierLower }} risk</h2>
+          <p style="margin:0 0 18px;font-size:12.5px;color:#8A95A2;font-weight:500;font-variant-numeric:tabular-nums;">{{ cur.findingCount }} findings · the evidence behind the score</p>
+          <div style="display:flex;flex-direction:column;gap:14px;">
+            <sc-for list="{{ cur.findings }}" as="f" hint-placeholder-count="3">
+              <div style="border:1px solid #EDF1F4;border-radius:11px;padding:15px 16px;">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;">
+                  <div style="min-width:0;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      <span style="{{ f.dotStyle }}"></span>
+                      <span style="font-weight:700;font-size:14px;color:#16202C;">{{ f.headline }}</span>
+                      <span style="{{ f.sevChipStyle }}">{{ f.sevLabel }}</span>
+                    </div>
+                    <p style="margin:7px 0 0 17px;font-size:13px;color:#5A6573;font-weight:500;">{{ f.message }}</p>
+                  </div>
+                  <div style="text-align:right;flex:none;">
+                    <div style="{{ f.metricStyleBig }}">{{ f.metricBig }}</div>
+                    <div style="font-size:11px;color:#9AA4B1;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;">{{ f.metricSub }}</div>
+                  </div>
+                </div>
+                <sc-if value="{{ f.isMeter }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:13px;margin-left:17px;">
+                    <div style="position:relative;height:7px;background:#EAEEF1;border-radius:4px;">
+                      <span style="{{ f.fillStyle }}"></span>
+                      <span style="{{ f.tickStyle }}"></span>
+                    </div>
+                    <div style="font-size:11px;color:#9AA4B1;font-weight:600;margin-top:6px;font-variant-numeric:tabular-nums;">{{ f.meterCaption }}</div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ f.isDelta }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:11px;margin-left:17px;display:flex;align-items:center;gap:10px;font-variant-numeric:tabular-nums;">
+                    <span style="font-weight:700;font-size:13px;color:#5A6573;">{{ f.fromTo }}</span>
+                    <span style="{{ f.deltaChipStyle }}">▼ {{ f.deltaText }}</span>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+
+        <!-- right column: history + interventions -->
+        <div style="display:flex;flex-direction:column;gap:20px;">
+
+          <!-- history -->
+          <section style="background:#fff;border:1px solid #E7ECF0;border-radius:14px;padding:22px 24px;">
+            <h2 style="margin:0 0 4px;font-size:16px;font-weight:700;">Risk over time</h2>
+            <sc-if value="{{ cur.hasHistory }}" hint-placeholder-val="{{ true }}">
+              <p style="margin:0 0 20px;font-size:12.5px;color:#8A95A2;font-weight:500;">{{ cur.trajectoryNote }}</p>
+              <div style="display:flex;align-items:flex-end;gap:10px;height:120px;border-bottom:1px solid #EDF1F4;padding-bottom:0;">
+                <sc-for list="{{ cur.history }}" as="h" hint-placeholder-count="4">
+                  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;">
+                    <span style="{{ h.scoreStyle }}">{{ h.score }}</span>
+                    <div style="{{ h.barStyle }}"></div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;gap:10px;margin-top:8px;">
+                <sc-for list="{{ cur.history }}" as="h" hint-placeholder-count="4">
+                  <div style="flex:1;text-align:center;">
+                    <span style="{{ h.tinyBadgeStyle }}"><span style="{{ h.shapeStyle }}"></span>{{ h.tierLabel }}</span>
+                    <div style="font-size:10px;color:#9AA4B1;font-weight:600;margin-top:4px;">{{ h.label }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ cur.noHistory }}" hint-placeholder-val="{{ false }}">
+              <p style="margin:10px 0 0;font-size:13px;color:#8A95A2;line-height:1.5;">This is the first computed risk assessment for {{ cur.firstName }}. A trajectory will appear here after the next import.</p>
+            </sc-if>
+          </section>
+
+          <!-- interventions -->
+          <section style="background:#fff;border:1px solid #E7ECF0;border-radius:14px;padding:22px 24px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <h2 style="margin:0;font-size:16px;font-weight:700;">Interventions</h2>
+              <button onClick="{{ openLogCurrent }}" style="{{ linkBtnStyle }}">+ Log</button>
+            </div>
+            <div style="margin-top:16px;display:flex;flex-direction:column;gap:12px;">
+              <sc-for list="{{ cur.interventions }}" as="iv" hint-placeholder-count="1">
+                <div style="border:1px solid #EDF1F4;border-radius:11px;padding:13px 15px;">
+                  <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">
+                    <span style="font-weight:700;font-size:13px;">{{ iv.typeLabel }}</span>
+                    <span style="{{ iv.statusStyle }}">{{ iv.statusLabel }}</span>
+                  </div>
+                  <p style="margin:7px 0 0;font-size:13px;color:#5A6573;font-weight:500;">{{ iv.title }}</p>
+                  <div style="margin-top:9px;display:flex;align-items:center;gap:8px;font-size:11.5px;color:#9AA4B1;font-weight:600;flex-wrap:wrap;">
+                    <span>{{ iv.assigned }}</span><span>·</span><span>{{ iv.created }}</span>
+                    <sc-if value="{{ iv.hasOutcome }}" hint-placeholder-val="{{ false }}">
+                      <span style="{{ iv.outcomeStyle }}">Outcome: {{ iv.outcomeLabel }}</span>
+                    </sc-if>
+                  </div>
+                  <sc-if value="{{ iv.hasActions }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin-top:12px;padding-top:12px;border-top:1px solid #F0F3F5;display:flex;gap:8px;flex-wrap:wrap;">
+                      <sc-for list="{{ iv.actions }}" as="a" hint-placeholder-count="2">
+                        <button onClick="{{ a.onClick }}" style="{{ a.style }}">{{ a.label }}</button>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ iv.showOutcomePicker }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin-top:12px;padding-top:12px;border-top:1px solid #F0F3F5;">
+                      <div style="font-size:10.5px;font-weight:700;letter-spacing:.05em;color:#A2ACB8;margin-bottom:8px;">DID IT HELP? RECORD THE OUTCOME</div>
+                      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <sc-for list="{{ iv.outcomeOptions }}" as="o" hint-placeholder-count="3">
+                          <button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <sc-if value="{{ cur.noInterventions }}" hint-placeholder-val="{{ false }}">
+                <div style="border:1px dashed #D7DEE4;border-radius:11px;padding:20px;text-align:center;">
+                  <p style="margin:0;font-size:13px;color:#8A95A2;">No interventions logged yet.</p>
+                  <button onClick="{{ openLogCurrent }}" style="{{ linkBtnStyle }}margin-top:8px;">Log the first one</button>
+                </div>
+              </sc-if>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ====== DASHBOARD SCREEN ====== -->
+    <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ false }}">
+    <div class="main-pad" data-screen-label="Dashboard" style="padding:30px 36px 60px;max-width:1100px;width:100%;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.07em;color:#A2ACB8;margin-bottom:7px;">LEADERSHIP · WHOLE INSTITUTION</div>
+      <h1 style="margin:0;font-size:25px;font-weight:800;letter-spacing:-.02em;">Institution overview</h1>
+      <p style="margin:6px 0 0;font-size:13.5px;color:#6B7686;font-weight:500;font-variant-numeric:tabular-nums;"><span style="font-weight:700;color:#16202C;">1,240</span> students assessed across 5 departments · <span style="color:#8A95A2;">Updated 2 hrs ago</span></p>
+
+      <!-- KPI row -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:22px;">
+        <sc-for list="{{ dashKpis }}" as="k" hint-placeholder-count="4">
+          <div style="background:#fff;border:1px solid #E7ECF0;border-radius:12px;padding:17px 19px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <sc-if value="{{ k.hasDot }}" hint-placeholder-val="{{ false }}"><span style="{{ k.dotStyle }}"></span></sc-if>
+              <span style="font-size:12px;font-weight:700;letter-spacing:.02em;color:#6B7686;">{{ k.label }}</span>
+            </div>
+            <div style="{{ k.valueStyle }}">{{ k.value }}</div>
+            <div style="font-size:11.5px;color:#9AA4B1;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;">{{ k.sub }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- tier distribution -->
+      <div style="background:#fff;border:1px solid #E7ECF0;border-radius:12px;padding:20px 22px;margin-top:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <h2 style="margin:0;font-size:15px;font-weight:700;">Risk distribution</h2>
+          <span style="font-size:11.5px;color:#9AA4B1;font-weight:600;">advisory tiers · the human decides</span>
+        </div>
+        <div style="margin-top:15px;height:15px;border-radius:8px;overflow:hidden;display:flex;">
+          <span style="{{ tierDist.highStyle }}"></span><span style="{{ tierDist.watchStyle }}"></span><span style="{{ tierDist.lowStyle }}"></span>
+        </div>
+        <div style="display:flex;gap:26px;margin-top:14px;flex-wrap:wrap;">
+          <sc-for list="{{ tierDist.items }}" as="d" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:9px;">
+              <span style="{{ d.shapeStyle }}"></span>
+              <span style="font-size:12.5px;font-weight:700;color:#16202C;">{{ d.label }}</span>
+              <span style="font-size:12.5px;font-weight:700;color:#16202C;font-variant-numeric:tabular-nums;">{{ d.count }}</span>
+              <span style="font-size:11.5px;color:#9AA4B1;font-weight:600;font-variant-numeric:tabular-nums;">{{ d.pct }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- trend over time -->
+      <div style="background:#fff;border:1px solid #E7ECF0;border-radius:12px;padding:20px 22px;margin-top:16px;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+          <div>
+            <h2 style="margin:0;font-size:15px;font-weight:700;">Risk trend over time</h2>
+            <p style="margin:5px 0 0;font-size:12.5px;color:#6B7686;font-weight:500;">{{ trendGrowth }}</p>
+          </div>
+          <div style="display:flex;gap:16px;">
+            <div style="display:flex;align-items:center;gap:7px;"><span style="width:9px;height:9px;background:#B42318;"></span><span style="font-size:11.5px;font-weight:700;color:#16202C;">High</span></div>
+            <div style="display:flex;align-items:center;gap:7px;"><span style="width:9px;height:9px;background:#B07A12;transform:rotate(45deg);"></span><span style="font-size:11.5px;font-weight:700;color:#16202C;">Watch</span></div>
+          </div>
+        </div>
+        <div style="margin-top:20px;display:flex;align-items:flex-end;gap:14px;">
+          <sc-for list="{{ trendBars }}" as="b" hint-placeholder-count="8">
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;">
+              <span style="{{ b.totalStyle }}">{{ b.total }}</span>
+              <div style="display:flex;flex-direction:column;align-items:center;width:100%;">
+                <div style="{{ b.highStyle }}"></div>
+                <div style="{{ b.watchStyle }}"></div>
+              </div>
+              <span style="{{ b.labelStyle }}">{{ b.label }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div class="s360-grid" style="display:grid;grid-template-columns:1.15fr 1fr;gap:20px;margin-top:16px;align-items:start;">
+        <!-- departments -->
+        <section style="background:#fff;border:1px solid #E7ECF0;border-radius:12px;padding:20px 22px;">
+          <h2 style="margin:0 0 3px;font-size:15px;font-weight:700;">By department</h2>
+          <p style="margin:0 0 16px;font-size:12px;color:#8A95A2;font-weight:500;">Ranked by share of students at high risk</p>
+          <div style="display:flex;flex-direction:column;">
+            <sc-for list="{{ depts }}" as="d" hint-placeholder-count="5">
+              <div style="display:grid;grid-template-columns:130px 1fr auto;gap:14px;align-items:center;padding:11px 0;border-top:1px solid #EDF1F4;">
+                <div>
+                  <div style="display:flex;align-items:center;gap:7px;">
+                    <span style="font-weight:700;font-size:13.5px;color:#16202C;">{{ d.name }}</span>
+                    <sc-if value="{{ d.isUnassigned }}" hint-placeholder-val="{{ false }}"><span style="font-size:9px;font-weight:700;letter-spacing:.03em;color:#8A6A22;background:#FBF3DE;border-radius:5px;padding:1px 5px;">NO MENTOR</span></sc-if>
+                  </div>
+                  <div style="font-size:11px;color:#9AA4B1;font-weight:600;margin-top:1px;font-variant-numeric:tabular-nums;">{{ d.total }} students</div>
+                </div>
+                <div style="position:relative;height:8px;background:#F0F3F5;border-radius:4px;">
+                  <span style="{{ d.barStyle }}"></span>
+                </div>
+                <div style="text-align:right;min-width:96px;">
+                  <span style="font-weight:800;font-size:14px;color:#B42318;font-variant-numeric:tabular-nums;">{{ d.high }}</span>
+                  <span style="font-size:11.5px;color:#9AA4B1;font-weight:600;"> high</span>
+                  <span style="font-size:11.5px;color:#9AA4B1;font-weight:600;font-variant-numeric:tabular-nums;"> · {{ d.rateLabel }}</span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin-top:14px;background:#FBF3DE;border-radius:9px;padding:12px 14px;">
+            <div style="display:flex;gap:9px;align-items:flex-start;font-size:12.5px;color:#7A5A12;line-height:1.45;">
+              <span style="font-weight:800;">◆</span><span><strong><span style="font-variant-numeric:tabular-nums;">{{ assignRemaining }}</span> students have no assigned mentor.</strong> Their risk is computed, but nobody owns the intervention — assign mentors to close the loop.</span>
+            </div>
+            <button onClick="{{ openAssign }}" style="margin-top:11px;margin-left:23px;background:#fff;border:1px solid #E2C977;border-radius:8px;padding:7px 13px;font-size:12px;font-weight:700;color:#7A5A12;">Assign mentors →</button>
+          </div>
+        </section>
+
+        <!-- highest risk students -->
+        <section style="background:#fff;border:1px solid #E7ECF0;border-radius:12px;padding:20px 22px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <h2 style="margin:0;font-size:15px;font-weight:700;">Highest risk right now</h2>
+            <button onClick="{{ goBoard }}" style="{{ linkBtnStyle }}">Open board →</button>
+          </div>
+          <p style="margin:6px 0 14px;font-size:12px;color:#8A95A2;font-weight:500;font-variant-numeric:tabular-nums;">Top of 86 high-risk students · click to open 360</p>
+          <div style="display:flex;flex-direction:column;gap:9px;">
+            <sc-for list="{{ topStudents }}" as="s" hint-placeholder-count="5">
+              <div role="button" tabindex="0" onClick="{{ s.onOpen }}" onKeyDown="{{ s.onKey }}" style="display:flex;align-items:center;gap:12px;border:1px solid #EDF1F4;border-radius:10px;padding:11px 13px;cursor:pointer;">
+                <div style="min-width:0;flex:1;">
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-weight:700;font-size:13.5px;color:#16202C;">{{ s.name }}</span>
+                    <span style="font-size:11px;color:#9AA4B1;font-weight:600;font-variant-numeric:tabular-nums;">{{ s.roll }} · {{ s.dept }}</span>
+                  </div>
+                  <div style="font-size:12px;color:#6B7686;font-weight:500;margin-top:3px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;">{{ s.topFinding }}</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:11px;flex:none;">
+                  <span style="{{ s.tierBadgeStyle }}"><span style="{{ s.shapeStyle }}"></span>{{ s.tierLabel }}</span>
+                  <span style="{{ s.scoreStyle }}">{{ s.score }}</span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+      </div>
+    </div>
+    </sc-if>
+  </main>
+
+  <!-- ================= LOG INTERVENTION MODAL ================= -->
+  <sc-if value="{{ showLog }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:fixed;inset:0;background:rgba(22,30,41,.42);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50;animation:om-fade .16s ease;">
+      <div onClick="{{ stop }}" style="background:#fff;border-radius:16px;width:100%;max-width:480px;box-shadow:0 24px 60px rgba(20,30,45,.28);animation:om-pop .2s ease;max-height:90vh;overflow:auto;">
+        <div style="padding:22px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+          <div>
+            <h2 style="margin:0;font-size:18px;font-weight:800;letter-spacing:-.01em;">Log intervention</h2>
+            <p style="margin:5px 0 0;font-size:13px;color:#8A95A2;font-weight:500;font-variant-numeric:tabular-nums;">For {{ logName }} · {{ logRoll }}</p>
+          </div>
+          <button onClick="{{ closeModal }}" aria-label="Close" style="width:30px;height:30px;border-radius:8px;color:#8A95A2;font-size:17px;display:flex;align-items:center;justify-content:center;">✕</button>
+        </div>
+        <div style="padding:20px 24px 24px;">
+          <label style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#A2ACB8;">TYPE</label>
+          <div style="margin-top:9px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <sc-for list="{{ logTypes }}" as="t" hint-placeholder-count="5">
+              <button onClick="{{ t.onSelect }}" style="{{ t.style }}">{{ t.label }}</button>
+            </sc-for>
+          </div>
+
+          <label style="display:block;margin-top:18px;font-size:11px;font-weight:700;letter-spacing:.05em;color:#A2ACB8;">WHAT WILL YOU DO?</label>
+          <input value="{{ logForm.title }}" onChange="{{ setTitle }}" placeholder="{{ titlePlaceholder }}" style="margin-top:9px;width:100%;border:1px solid #DDE4E9;border-radius:9px;padding:11px 13px;font-size:14px;color:#16202C;background:#FAFBFC;" />
+
+          <label style="display:block;margin-top:16px;font-size:11px;font-weight:700;letter-spacing:.05em;color:#A2ACB8;">ASSIGNED TO</label>
+          <input value="{{ logForm.assignee }}" onChange="{{ setAssignee }}" style="margin-top:9px;width:100%;border:1px solid #DDE4E9;border-radius:9px;padding:11px 13px;font-size:14px;color:#16202C;background:#FAFBFC;" />
+
+          <sc-if value="{{ adultParentNote }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:14px;display:flex;gap:9px;align-items:flex-start;background:#F4F7F9;border-radius:9px;padding:11px 13px;font-size:12.5px;color:#6B7686;line-height:1.45;">
+              <span style="color:#0A656D;font-weight:800;">ℹ</span><span>{{ logFirstName }} is an adult — contacting a parent doesn't require recorded consent.</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ needsConsent }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:14px;display:flex;gap:9px;align-items:flex-start;background:#FBF3DE;border:1px solid #EBDCB4;border-radius:9px;padding:12px 14px;font-size:12.5px;color:#7A5A12;line-height:1.45;">
+              <span style="font-weight:800;">◆</span><span><strong>{{ logFirstName }} is a minor.</strong> Contacting a parent or guardian needs recorded consent on file. You'll confirm this on the next step.</span>
+            </div>
+          </sc-if>
+
+          <div style="margin-top:22px;display:flex;justify-content:flex-end;gap:10px;">
+            <button onClick="{{ closeModal }}" style="{{ secondaryBtnStyle }}">Cancel</button>
+            <button onClick="{{ primaryLog }}" disabled="{{ logDisabled }}" style="{{ logPrimaryStyle }}">{{ logPrimaryLabel }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ================= CONSENT GATE MODAL ================= -->
+  <sc-if value="{{ showConsent }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:fixed;inset:0;background:rgba(22,30,41,.42);display:flex;align-items:center;justify-content:center;padding:20px;z-index:60;animation:om-fade .16s ease;">
+      <div onClick="{{ stop }}" style="background:#fff;border-radius:16px;width:100%;max-width:460px;box-shadow:0 24px 60px rgba(20,30,45,.28);animation:om-pop .2s ease;overflow:hidden;">
+        <div style="background:#FBF3DE;padding:20px 24px;border-bottom:1px solid #EBDCB4;display:flex;align-items:center;gap:12px;">
+          <span style="width:34px;height:34px;border-radius:9px;background:#E2BE5E;color:#5C420C;font-weight:800;font-size:16px;display:flex;align-items:center;justify-content:center;flex:none;">◆</span>
+          <div>
+            <h2 style="margin:0;font-size:16px;font-weight:800;color:#5C420C;">Recorded consent required</h2>
+            <p style="margin:3px 0 0;font-size:12px;color:#8A6A22;font-weight:600;">Minor student · parent contact</p>
+          </div>
+        </div>
+        <div style="padding:22px 24px 24px;">
+          <p style="margin:0;font-size:14px;color:#3A4654;line-height:1.55;"><strong>{{ logName }}</strong> ({{ logRoll }}) is under 18. Before logging a parent contact, confirm that consent to contact the parent or guardian is recorded in the student's file.</p>
+          <label style="margin-top:18px;display:flex;align-items:flex-start;gap:11px;cursor:pointer;padding:13px;border:1.5px solid {{ consentBorder }};border-radius:11px;background:{{ consentBg }};">
+            <input type="checkbox" checked="{{ consentGiven }}" onChange="{{ toggleConsent }}" style="margin-top:2px;width:17px;height:17px;accent-color:#0A656D;flex:none;" />
+            <span style="font-size:13.5px;color:#16202C;font-weight:600;line-height:1.45;">I confirm recorded consent from the parent/guardian is on file for this student.</span>
+          </label>
+          <div style="margin-top:22px;display:flex;justify-content:space-between;gap:10px;">
+            <button onClick="{{ backToLog }}" style="{{ secondaryBtnStyle }}">← Back</button>
+            <button onClick="{{ confirmConsent }}" disabled="{{ consentDisabled }}" style="{{ consentPrimaryStyle }}">Confirm &amp; log</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ================= ASSIGN MENTOR MODAL ================= -->
+  <sc-if value="{{ assignOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeAssign }}" style="position:fixed;inset:0;background:rgba(22,30,41,.42);display:flex;align-items:center;justify-content:center;padding:20px;z-index:55;animation:om-fade .16s ease;">
+      <div onClick="{{ stop }}" style="background:#fff;border-radius:16px;width:100%;max-width:520px;box-shadow:0 24px 60px rgba(20,30,45,.28);animation:om-pop .2s ease;max-height:90vh;display:flex;flex-direction:column;">
+        <div style="padding:22px 24px 16px;border-bottom:1px solid #EDF1F4;display:flex;align-items:flex-start;justify-content:space-between;">
+          <div>
+            <h2 style="margin:0;font-size:18px;font-weight:800;letter-spacing:-.01em;">Assign mentors</h2>
+            <p style="margin:5px 0 0;font-size:13px;color:#8A95A2;font-weight:500;font-variant-numeric:tabular-nums;"><strong style="color:#7A5A12;">{{ assignRemaining }}</strong> at-risk students still need an owner · highest risk first</p>
+          </div>
+          <button onClick="{{ closeAssign }}" aria-label="Close" style="width:30px;height:30px;border-radius:8px;color:#8A95A2;font-size:17px;display:flex;align-items:center;justify-content:center;">✕</button>
+        </div>
+        <div style="padding:14px 24px 22px;overflow:auto;">
+          <div style="display:flex;flex-direction:column;gap:9px;">
+            <sc-for list="{{ assignItems }}" as="u" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:12px;border:1px solid #EDF1F4;border-radius:11px;padding:12px 14px;">
+                <span style="{{ u.scoreStyle }}">{{ u.score }}</span>
+                <div style="min-width:0;flex:1;">
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-weight:700;font-size:13.5px;color:#16202C;">{{ u.name }}</span>
+                    <span style="{{ u.tierBadgeStyle }}"><span style="{{ u.shapeStyle }}"></span>{{ u.tierLabel }}</span>
+                  </div>
+                  <div style="font-size:11px;color:#9AA4B1;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums;">{{ u.meta }}</div>
+                  <sc-if value="{{ u.assigned }}" hint-placeholder-val="{{ false }}">
+                    <div style="font-size:11px;color:#1F7A4D;font-weight:700;margin-top:3px;">Now mentored by {{ u.assignedTo }}</div>
+                  </sc-if>
+                </div>
+                <button onClick="{{ u.onAssign }}" disabled="{{ u.assigned }}" style="{{ u.btnStyle }}">{{ u.btnLabel }}</button>
+              </div>
+            </sc-for>
+          </div>
+          <p style="margin:14px 2px 0;font-size:11.5px;color:#9AA4B1;font-weight:500;line-height:1.5;">Showing 5 of {{ assignRemaining }}. Assigning makes you the owner — the student then appears on your Risk Board and you can log interventions.</p>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ================= TOAST ================= -->
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#16202C;color:#fff;padding:12px 18px;border-radius:11px;font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:9px;box-shadow:0 12px 32px rgba(20,30,45,.32);z-index:70;animation:om-toast .22s ease;">
+      <span style="width:18px;height:18px;border-radius:50%;background:#2FA56A;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;">✓</span>{{ toast }}
+    </div>
+  </sc-if>
+
+  <!-- ================= PROTOTYPE STATE PANEL ================= -->
+  <div class="demo-panel" style="position:fixed;bottom:18px;right:18px;background:#fff;border:1px solid #E1E7EC;border-radius:12px;box-shadow:0 8px 26px rgba(20,30,45,.14);padding:13px 15px;z-index:40;width:210px;">
+    <div style="font-size:10px;font-weight:800;letter-spacing:.07em;color:#A2ACB8;margin-bottom:9px;">PROTOTYPE STATES</div>
+    <div style="font-size:10.5px;font-weight:700;color:#8A95A2;margin-bottom:5px;">BOARD</div>
+    <div style="display:flex;gap:5px;margin-bottom:11px;">
+      <button onClick="{{ setNormal }}" style="{{ demoNormal }}">Normal</button>
+      <button onClick="{{ setEmpty }}" style="{{ demoEmpty }}">Empty</button>
+      <button onClick="{{ setErrorState }}" style="{{ demoError }}">Error</button>
+    </div>
+    <button onClick="{{ toggleStale }}" style="{{ demoStale }}"><span style="{{ staleDotStyle }}"></span>Stale-data note</button>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1180,&quot;height&quot;:860},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#0E7C86&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;density&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;comfortable&quot;,&quot;compact&quot;],&quot;default&quot;:&quot;comfortable&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = {
+    screen: 'board',
+    studentId: null,
+    tier: { high: true, watch: true, low: false },
+    type: 'all',
+    boardState: 'normal',
+    stale: false,
+    modal: null,            // 'log' | 'consent'
+    logStudentId: null,
+    logForm: { type: 'mentor_meeting', title: '', assignee: 'Dr. Meera Iyer' },
+    consentGiven: false,
+    toast: null,
+    extra: {},              // interventions added at runtime, keyed by roll
+    ivOverrides: {},        // status/outcome changes keyed by intervention id
+    search: '',             // board search query
+    alertsOpen: false,      // alerts dropdown
+    alertsRead: false,      // whether the alert badge is cleared
+    assignOpen: false,      // assign-mentor modal
+    mentorAssignments: {}   // roll -> mentor name (for the unassigned)
+  };
+
+  ALERTS = [
+    { roll:'21CSE045', name:'Aarav Sharma', dept:'CSE', from:'watch', to:'high', score:78, when:'2 hrs ago' },
+    { roll:'21CSE112', name:'Sneha Reddy', dept:'CSE', from:'watch', to:'high', score:60, when:'2 hrs ago' },
+    { roll:'21CSE009', name:'Mohammed Faiz', dept:'CSE', from:'watch', to:'high', score:55, when:'1 day ago' }
+  ];
+  UNASSIGNED = [
+    { roll:'22ECE020', name:'Karan Mehta', dept:'ECE', tier:'high', score:72 },
+    { roll:'21CIV045', name:'Arjun Das', dept:'CIVIL', tier:'high', score:64 },
+    { roll:'22MEC112', name:'Vikram Rao', dept:'MECH', tier:'high', score:58 },
+    { roll:'22ECE077', name:'Fatima Khan', dept:'ECE', tier:'watch', score:44 },
+    { roll:'21MEC009', name:'Priya Singh', dept:'MECH', tier:'watch', score:31 }
+  ];
+
+  // ---------- static data ----------
+  SEV = {
+    high:   { ink:'#B42318', fill:'#B42318', bg:'#FBEAE8' },
+    medium: { ink:'#8A5800', fill:'#B07A12', bg:'#FAF0DC' },
+    low:    { ink:'#1F7A4D', fill:'#1F7A4D', bg:'#E7F4EC' }
+  };
+  TIER_SEV = { high:'high', watch:'medium', low:'low' };
+  SHAPE = {
+    high:   { width:'8px', height:'8px', background:'#B42318', flex:'none' },
+    watch:  { width:'8px', height:'8px', background:'#B07A12', transform:'rotate(45deg)', flex:'none' },
+    low:    { width:'8px', height:'8px', borderRadius:'50%', background:'#1F7A4D', flex:'none' }
+  };
+  TYPE_LABEL = { mentor_meeting:'Mentor meeting', remedial_class:'Remedial class', parent_contact:'Parent contact', counselling:'Counselling', other:'Other' };
+  STATUS_LABEL = { suggested:'Suggested', open:'Open', in_progress:'In progress', completed:'Completed', dismissed:'Dismissed' };
+  OUTCOME_LABEL = { improved:'Improved', no_change:'No change', worsened:'Worsened', unknown:'Unknown' };
+  TITLE_HINT = { mentor_meeting:'e.g. 1:1 check-in on attendance', remedial_class:'e.g. Extra DBMS problem session', parent_contact:'e.g. Call guardian about attendance', counselling:'e.g. Refer to student wellbeing cell', other:'Describe the action' };
+
+  students() {
+    return [
+      { roll:'21CSE045', name:'Aarav Sharma', tier:'high', score:78, minor:false, dept:'CSE', programme:'B.Tech Computer Science', admissionYear:2021,
+        findings:[
+          { code:'ATTENDANCE_BELOW_THRESHOLD', risk_type:'attendance', severity:'high', message:'Attendance 61% (below 75%)', ev:{ value:61, threshold:75 } },
+          { code:'ACADEMIC_FAILING_INTERNALS', risk_type:'academic', severity:'high', message:'2 internals below 40%', ev:{ count:2, threshold:40 } },
+          { code:'ACADEMIC_DECLINE', risk_type:'academic', severity:'medium', message:'Latest internal 38% vs baseline 64%', ev:{ latest:38, baseline:64 } }
+        ],
+        history:[
+          { label:'8 wks ago', tier:'low', score:10 },
+          { label:'5 wks ago', tier:'watch', score:30 },
+          { label:'3 wks ago', tier:'watch', score:45 },
+          { label:'now', tier:'high', score:78 }
+        ],
+        interventions:[
+          { type:'mentor_meeting', status:'completed', title:'1:1 check-in on attendance', assigned_to_name:'Dr. Meera Iyer', created_at:'1 week ago', outcome:'no_change' }
+        ] },
+      { roll:'21CSE112', name:'Sneha Reddy', tier:'high', score:60, minor:false, dept:'CSE',
+        findings:[
+          { code:'ATTENDANCE_DECLINING', risk_type:'attendance', severity:'high', message:'Attendance fell 18 pts (82%→64%)', ev:{ from:82, to:64 } },
+          { code:'ACADEMIC_DECLINE', risk_type:'academic', severity:'high', message:'Latest internal 38% vs baseline 64%', ev:{ latest:38, baseline:64 } }
+        ] },
+      { roll:'21CSE009', name:'Mohammed Faiz', tier:'high', score:55, minor:false, dept:'CSE',
+        findings:[
+          { code:'ACADEMIC_FAILING_INTERNALS', risk_type:'academic', severity:'high', message:'2 internals below 40%', ev:{ count:2, threshold:40 } },
+          { code:'FEE_OVERDUE', risk_type:'fee', severity:'medium', message:'Fees overdue 41 days', ev:{ days:41 } }
+        ] },
+      { roll:'21CSE077', name:'Ananya Nair', tier:'watch', score:40, minor:true, dept:'CSE',
+        findings:[
+          { code:'ATTENDANCE_BELOW_THRESHOLD', risk_type:'attendance', severity:'medium', message:'Attendance 71% (below 75%)', ev:{ value:71, threshold:75 } }
+        ] },
+      { roll:'21CSE131', name:'Rohit Verma', tier:'watch', score:35, minor:false, dept:'CSE',
+        findings:[
+          { code:'ACADEMIC_DECLINE', risk_type:'academic', severity:'medium', message:'Latest internal 44% vs baseline 61%', ev:{ latest:44, baseline:61 } }
+        ] },
+      { roll:'21CSE058', name:'Diya Patel', tier:'watch', score:25, minor:true, dept:'CSE',
+        findings:[
+          { code:'ATTENDANCE_DECLINING', risk_type:'attendance', severity:'medium', message:'Attendance fell 16 pts (80%→64%)', ev:{ from:80, to:64 } }
+        ] }
+    ];
+  }
+
+  // ---------- helpers ----------
+  accent() { return this.props.accent || '#0E7C86'; }
+  accentInk() { return this.darken(this.accent(), 0.16); }
+  darken(hex, amt) {
+    const n = hex.replace('#',''); const r=parseInt(n.substr(0,2),16),g=parseInt(n.substr(2,2),16),b=parseInt(n.substr(4,2),16);
+    const f=x=>Math.max(0,Math.round(x*(1-amt))).toString(16).padStart(2,'0');
+    return '#'+f(r)+f(g)+f(b);
+  }
+  pad() { return (this.props.density || 'comfortable') === 'compact' ? '14px 18px' : '18px 22px'; }
+
+  tierBadgeStyle(tier, big) {
+    const s = this.SEV[this.TIER_SEV[tier]];
+    return { display:'inline-flex', alignItems:'center', gap:'6px', padding: big?'4px 11px':'3px 8px', borderRadius:'7px', background:s.bg, color:s.ink, fontWeight:700, fontSize: big?'12px':'10.5px', letterSpacing:'.03em', whiteSpace:'nowrap' };
+  }
+
+  findingVM(f, full) {
+    const s = this.SEV[f.severity];
+    const vm = {
+      typeTag: f.risk_type.toUpperCase(), message: f.message, severity: f.severity,
+      sevLabel: f.severity.charAt(0).toUpperCase()+f.severity.slice(1),
+      metricStyleSmall: { color: s.ink, fontWeight:700, fontSize:'13px', whiteSpace:'nowrap', fontVariantNumeric:'tabular-nums' },
+      metricStyleBig: { color: s.ink, fontWeight:800, fontSize:'21px', lineHeight:1, letterSpacing:'-.01em', fontVariantNumeric:'tabular-nums' },
+      dotStyle: { width:'9px', height:'9px', borderRadius:'2px', background:s.fill, flex:'none', marginTop:'4px' },
+      sevChipStyle: { fontSize:'9.5px', fontWeight:700, letterSpacing:'.04em', padding:'1px 6px', borderRadius:'5px', background:s.bg, color:s.ink },
+      isMeter:false, isDelta:false, isCount:false, isDays:false,
+      metricBig:'', metricSub:'', headline:''
+    };
+    if (f.code === 'ATTENDANCE_BELOW_THRESHOLD') {
+      const v=f.ev.value, t=f.ev.threshold;
+      vm.isMeter=true; vm.headline='Attendance below minimum';
+      vm.metricBig=v+'%'; vm.metricSub='min '+t+'%';
+      vm.fillStyle={ position:'absolute', left:0, top:0, bottom:0, width:v+'%', background:s.fill, borderRadius:'4px' };
+      vm.tickStyle={ position:'absolute', left:t+'%', top:'-3px', bottom:'-3px', width:'2px', background:'#2A3340', borderRadius:'1px' };
+      vm.meterCaption=(t-v)+' points under the '+t+'% line';
+    } else if (f.code === 'ATTENDANCE_DECLINING' || f.code === 'ACADEMIC_DECLINE') {
+      const att = f.code === 'ATTENDANCE_DECLINING';
+      const from = att ? f.ev.from : f.ev.baseline;
+      const to = att ? f.ev.to : f.ev.latest;
+      vm.isDelta=true; vm.headline = att ? 'Attendance falling' : 'Marks declining';
+      vm.fromTo = from+'% → '+to+'%'; vm.metricBig = to+'%'; vm.metricSub='was '+from+'%';
+      vm.deltaText = '−'+(from-to)+' pts';
+      vm.deltaChipStyle = { fontSize:'11px', fontWeight:700, padding:'2px 7px', borderRadius:'5px', background:s.bg, color:s.ink };
+    } else if (f.code === 'ACADEMIC_FAILING_INTERNALS') {
+      vm.isCount=true; vm.headline='Failing internals';
+      vm.metricBig=String(f.ev.count); vm.metricSub='below '+f.ev.threshold+'%';
+    } else if (f.code === 'FEE_OVERDUE') {
+      vm.isDays=true; vm.headline='Fees overdue';
+      vm.metricBig=f.ev.days+'d'; vm.metricSub='pending';
+    }
+    return vm;
+  }
+
+  filtered() {
+    const t = this.state.tier, ty = this.state.type;
+    const q = (this.state.search || '').trim().toLowerCase();
+    return this.students().filter(s =>
+      t[s.tier] &&
+      (ty === 'all' || s.findings.some(f => f.risk_type === ty)) &&
+      (q === '' || s.name.toLowerCase().includes(q) || s.roll.toLowerCase().includes(q))
+    );
+  }
+
+  trendData() {
+    // institution-wide weekly at-risk counts (watch + high), 8 weeks
+    const weeks = [
+      { label:'W1', watch:180, high:52 },
+      { label:'W2', watch:188, high:55 },
+      { label:'W3', watch:193, high:58 },
+      { label:'W4', watch:198, high:63 },
+      { label:'W5', watch:202, high:68 },
+      { label:'W6', watch:206, high:74 },
+      { label:'W7', watch:209, high:80 },
+      { label:'now', watch:211, high:86 }
+    ];
+    const maxTotal = Math.max(...weeks.map(w => w.watch + w.high));
+    const H = 132;
+    const bars = weeks.map((w, i) => {
+      const total = w.watch + w.high;
+      const last = i === weeks.length - 1;
+      return {
+        label:w.label, total,
+        watchStyle:{ width:'100%', maxWidth:'26px', height:Math.round(w.watch/maxTotal*H)+'px', background:this.SEV.medium.fill, opacity: last?1:0.78, borderRadius:'0 0 3px 3px' },
+        highStyle:{ width:'100%', maxWidth:'26px', height:Math.round(w.high/maxTotal*H)+'px', background:this.SEV.high.fill, opacity: last?1:0.85, borderRadius:'3px 3px 0 0' },
+        totalStyle:{ fontWeight:800, fontSize:'11px', color: last?'#16202C':'#9AA4B1', marginBottom:'6px', fontVariantNumeric:'tabular-nums' },
+        labelStyle:{ fontSize:'10px', fontWeight: last?800:600, color: last?'#16202C':'#9AA4B1', marginTop:'7px' }
+      };
+    });
+    const first = weeks[0].watch + weeks[0].high, lastTotal = weeks[weeks.length-1].watch + weeks[weeks.length-1].high;
+    const growth = Math.round((lastTotal - first)/first*100);
+    return { bars, growthLabel:'At-risk students grew '+growth+'% over 8 weeks — driven by the high tier (+'+(weeks[weeks.length-1].high-weeks[0].high)+').' };
+  }
+
+  navStyle(active, acc, accInk) {
+    return active
+      ? { display:'flex', alignItems:'center', gap:'10px', padding:'9px 10px', borderRadius:'8px', background:'#E3F1F2', color:accInk, fontWeight:700, fontSize:'13.5px', borderLeft:'3px solid '+acc, width:'100%', textAlign:'left' }
+      : { display:'flex', alignItems:'center', gap:'10px', padding:'9px 10px', borderRadius:'8px', background:'transparent', color:'#5A6573', fontWeight:600, fontSize:'13.5px', width:'100%', textAlign:'left' };
+  }
+
+  dashData() {
+    const TOTAL = 1240, HIGH = 86, WATCH = 211, LOW = 943;
+    const pct = (n) => (n/TOTAL*100).toFixed(1)+'%';
+    const kpis = [
+      { label:'Assessed', value:'1,240', sub:'across 5 departments', hasDot:false, valueStyle:{ fontWeight:800, fontSize:'30px', color:'#16202C', lineHeight:1.05, marginTop:'9px', letterSpacing:'-.02em', fontVariantNumeric:'tabular-nums' } },
+      { label:'High risk', value:'86', sub:pct(HIGH)+' of assessed', hasDot:true, dotStyle:this.SHAPE.high, valueStyle:{ fontWeight:800, fontSize:'30px', color:this.SEV.high.ink, lineHeight:1.05, marginTop:'9px', letterSpacing:'-.02em', fontVariantNumeric:'tabular-nums' } },
+      { label:'Watch', value:'211', sub:pct(WATCH)+' of assessed', hasDot:true, dotStyle:this.SHAPE.watch, valueStyle:{ fontWeight:800, fontSize:'30px', color:this.SEV.medium.ink, lineHeight:1.05, marginTop:'9px', letterSpacing:'-.02em', fontVariantNumeric:'tabular-nums' } },
+      { label:'Low', value:'943', sub:pct(LOW)+' of assessed', hasDot:true, dotStyle:this.SHAPE.low, valueStyle:{ fontWeight:800, fontSize:'30px', color:this.SEV.low.ink, lineHeight:1.05, marginTop:'9px', letterSpacing:'-.02em', fontVariantNumeric:'tabular-nums' } }
+    ];
+    const tierDist = {
+      highStyle:{ flex:String(HIGH), background:this.SEV.high.fill },
+      watchStyle:{ flex:String(WATCH), background:this.SEV.medium.fill },
+      lowStyle:{ flex:String(LOW), background:this.SEV.low.fill },
+      items:[
+        { label:'High', count:'86', pct:pct(HIGH), shapeStyle:this.SHAPE.high },
+        { label:'Watch', count:'211', pct:pct(WATCH), shapeStyle:this.SHAPE.watch },
+        { label:'Low', count:'943', pct:pct(LOW), shapeStyle:this.SHAPE.low }
+      ]
+    };
+    const raw = [
+      { name:'CSE', total:320, high:28 },
+      { name:'MECH', total:280, high:12 },
+      { name:'ECE', total:240, high:19 },
+      { name:'CIVIL', total:210, high:9 },
+      { name:'Unassigned', total:190, high:18 }
+    ].map(d => ({ ...d, rate: d.high/d.total }));
+    const maxRate = Math.max(...raw.map(d => d.rate));
+    const depts = raw.sort((a,b) => b.rate - a.rate).map(d => ({
+      name:d.name, total:d.total, high:d.high,
+      rateLabel:(d.rate*100).toFixed(1)+'%',
+      isUnassigned: d.name === 'Unassigned',
+      barStyle:{ position:'absolute', left:0, top:0, bottom:0, width:Math.round(d.rate/maxRate*100)+'%', background:this.SEV.high.fill, borderRadius:'4px' }
+    }));
+    const topStudents = this.students().slice(0,5).map(s => {
+      const sev = this.SEV[this.TIER_SEV[s.tier]];
+      return {
+        roll:s.roll, name:s.name, dept:s.dept, score:s.score,
+        tierLabel:s.tier.toUpperCase(),
+        tierBadgeStyle:this.tierBadgeStyle(s.tier,false),
+        shapeStyle:this.SHAPE[s.tier],
+        scoreStyle:{ color:sev.ink, fontWeight:800, fontSize:'20px', fontVariantNumeric:'tabular-nums' },
+        topFinding:s.findings[0].message,
+        onOpen:() => this.openStudent(s.roll),
+        onKey:this.onKey(s.roll)
+      };
+    });
+    return { kpis, tierDist, depts, topStudents };
+  }
+
+  intervFor(roll) {
+    const base = ((this.students().find(s => s.roll === roll) || {}).interventions || []).map((iv, i) => ({ ...iv, id: roll + '-b' + i }));
+    const extra = this.state.extra[roll] || [];
+    return base.concat(extra).map(iv => {
+      const ov = this.state.ivOverrides[iv.id] || {};
+      return { ...iv, status: ov.status || iv.status, outcome: ('outcome' in ov) ? ov.outcome : iv.outcome };
+    });
+  }
+
+  // ---------- handlers ----------
+  goBoard = () => this.setState({ screen:'board' });
+  goDashboard = () => this.setState({ screen:'dashboard' });
+  openStudent = (roll) => this.setState({ screen:'student', studentId: roll });
+  onKey = (roll) => (e) => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); this.openStudent(roll); } };
+  stop = (e) => e.stopPropagation();
+
+  toggleTier = (k) => this.setState(s => ({ tier: { ...s.tier, [k]: !s.tier[k] } }));
+  setType = (v) => this.setState({ type: v });
+  clearFilters = () => this.setState({ tier:{high:true,watch:true,low:false}, type:'all', search:'' });
+  setSearch = (e) => { const v = e.target.value; this.setState({ search: v }); };
+  clearSearch = () => this.setState({ search:'' });
+
+  toggleAlerts = () => this.setState(s => ({ alertsOpen: !s.alertsOpen, alertsRead: true }));
+  closeAlerts = () => this.setState({ alertsOpen:false });
+  openAlertStudent = (roll) => this.setState({ screen:'student', studentId: roll, alertsOpen:false });
+
+  openAssign = () => this.setState({ assignOpen:true });
+  closeAssign = () => this.setState({ assignOpen:false });
+  assignMentor = (roll) => {
+    this.setState(s => ({ mentorAssignments: { ...s.mentorAssignments, [roll]: 'Dr. Meera Iyer' } }));
+    this.flashToast('Mentor assigned');
+  };
+
+  setBoardState = (v) => this.setState({ boardState: v });
+  toggleStale = () => this.setState(s => ({ stale: !s.stale }));
+  retry = () => this.setState({ boardState:'normal' });
+
+  openLog = (roll) => this.setState({ modal:'log', logStudentId: roll, logForm:{ type:'mentor_meeting', title:'', assignee:'Dr. Meera Iyer' }, consentGiven:false });
+  closeModal = () => this.setState({ modal:null });
+  selectType = (t) => this.setState(s => ({ logForm:{ ...s.logForm, type:t } }));
+  setTitle = (e) => { const v=e.target.value; this.setState(s => ({ logForm:{ ...s.logForm, title:v } })); };
+  setAssignee = (e) => { const v=e.target.value; this.setState(s => ({ logForm:{ ...s.logForm, assignee:v } })); };
+  toggleConsent = () => this.setState(s => ({ consentGiven: !s.consentGiven }));
+  backToLog = () => this.setState({ modal:'log' });
+
+  isMinorLog() {
+    const s = this.students().find(x => x.roll === this.state.logStudentId);
+    return !!(s && s.minor);
+  }
+  primaryLog = () => {
+    if (this.state.logForm.type === 'parent_contact' && this.isMinorLog()) this.setState({ modal:'consent' });
+    else this.submitLog();
+  };
+  confirmConsent = () => this.submitLog();
+  submitLog = () => {
+    const f = this.state.logForm; const roll = this.state.logStudentId;
+    const title = (f.title && f.title.trim()) ? f.title.trim() : this.TYPE_LABEL[f.type];
+    const iv = { id:'iv-'+Date.now(), type:f.type, status:'open', title, assigned_to_name:f.assignee || 'Dr. Meera Iyer', created_at:'Just now', outcome:null };
+    this.setState(s => ({
+      extra: { ...s.extra, [roll]: (s.extra[roll]||[]).concat(iv) },
+      modal:null
+    }));
+    this.flashToast('Intervention logged');
+  };
+
+  flashToast(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast:null }), 2600);
+  }
+  setIvStatus = (id, status) => {
+    this.setState(s => ({ ivOverrides: { ...s.ivOverrides, [id]: { ...(s.ivOverrides[id]||{}), status } } }));
+    this.flashToast(status === 'in_progress' ? 'Marked in progress' : status === 'completed' ? 'Marked complete — record the outcome' : 'Intervention dismissed');
+  };
+  setIvOutcome = (id, outcome) => {
+    this.setState(s => ({ ivOverrides: { ...s.ivOverrides, [id]: { ...(s.ivOverrides[id]||{}), outcome } } }));
+    this.flashToast('Outcome recorded');
+  };
+
+  // ---------- render ----------
+  renderVals() {
+    const acc = this.accent(), accInk = this.accentInk();
+    const dd = this.dashData();
+    const list = this.filtered();
+    const bs = this.state.boardState;
+
+    const primaryBtnStyle = { background:acc, color:'#fff', fontWeight:700, fontSize:'13.5px', padding:'10px 18px', borderRadius:'9px' };
+    const secondaryBtnStyle = { background:'#fff', color:'#5A6573', fontWeight:600, fontSize:'13.5px', padding:'10px 16px', borderRadius:'9px', border:'1px solid #DDE4E9' };
+    const linkBtnStyle = { color:accInk, fontWeight:700, fontSize:'13px', padding:'2px 0' };
+    const logGhostStyle = { color:accInk, fontWeight:700, fontSize:'11.5px', padding:'5px 9px', borderRadius:'7px', border:'1px solid #DDE4E9', background:'#fff', whiteSpace:'nowrap' };
+
+    // board student VMs
+    const students = list.map(s => {
+      const sev = this.SEV[this.TIER_SEV[s.tier]];
+      return {
+        roll:s.roll, name:s.name, score:s.score, isMinor:s.minor,
+        tierLabel:s.tier.toUpperCase(),
+        tierBadgeStyle:this.tierBadgeStyle(s.tier,false),
+        shapeStyle:this.SHAPE[s.tier],
+        scoreStyle:{ color:sev.ink, fontWeight:800, fontSize:'30px', lineHeight:1, marginTop:'9px', letterSpacing:'-.02em', fontVariantNumeric:'tabular-nums' },
+        rowStyle:{ display:'grid', gridTemplateColumns:'5px 1fr auto', gap:'18px', alignItems:'flex-start', background:'#fff', border:'1px solid #E7ECF0', borderRadius:'12px', padding:this.pad(), paddingLeft:'0', overflow:'hidden', cursor:'pointer', transition:'box-shadow .15s, border-color .15s', boxShadow:'0 1px 2px rgba(20,30,45,.04)' },
+        accentBar:{ background:sev.fill, alignSelf:'stretch', borderRadius:'0 3px 3px 0' },
+        findings: s.findings.slice(0,2).map(f => this.findingVM(f,false)),
+        onOpen: () => this.openStudent(s.roll),
+        onKey: this.onKey(s.roll),
+        onLog: (e) => { e.stopPropagation(); this.openLog(s.roll); }
+      };
+    });
+
+    // hover via style-merge not available; emulate hover with inline? rows get box-shadow on hover through CSS focus only. fine.
+
+    // current student VM
+    let cur = null;
+    if (this.state.screen === 'student') {
+      const s = this.students().find(x => x.roll === this.state.studentId);
+      if (s) {
+        const sev = this.SEV[this.TIER_SEV[s.tier]];
+        const ivs = this.intervFor(s.roll);
+        cur = {
+          name:s.name, firstName:s.name.split(' ')[0], roll:s.roll,
+          programme: s.programme || 'B.Tech Computer Science',
+          admissionYear: s.admissionYear || ('20'+s.roll.slice(0,2)),
+          minorLabel: s.minor ? 'Minor' : 'Adult',
+          minorBadgeStyle: s.minor
+            ? { display:'inline-flex', alignItems:'center', gap:'4px', padding:'3px 9px', borderRadius:'7px', background:'#EEF1F8', color:'#3A4ED6', fontWeight:700, fontSize:'11px' }
+            : { display:'inline-flex', alignItems:'center', padding:'3px 9px', borderRadius:'7px', background:'#F0F3F5', color:'#6B7686', fontWeight:700, fontSize:'11px' },
+          minorPrefix: s.minor ? '◆ ' : '',
+          score:s.score, tierLabel:s.tier.toUpperCase(), tierLower:s.tier,
+          scoreStyle:{ color:sev.ink, fontWeight:800, fontSize:'50px', lineHeight:.84, letterSpacing:'-.03em', fontVariantNumeric:'tabular-nums' },
+          tierBadgeStyle:this.tierBadgeStyle(s.tier,true),
+          shapeStyle:this.SHAPE[s.tier],
+          markerStyle:{ position:'absolute', left:'calc('+s.score+'% - 6px)', top:'-2px', width:'12px', height:'13px', borderRadius:'3px', background:'#fff', border:'2.5px solid '+sev.ink },
+          computed:'2 hrs ago',
+          findingCount:s.findings.length,
+          findings:s.findings.map(f => this.findingVM(f,true)),
+          hasHistory: !!(s.history && s.history.length),
+          noHistory: !(s.history && s.history.length),
+          trajectoryNote: 'Worsened from low to high over 8 weeks.',
+          history: (s.history||[]).map(h => {
+            const hs = this.SEV[this.TIER_SEV[h.tier]];
+            return {
+              label:h.label, score:h.score, tierLabel:h.tier.toUpperCase(),
+              scoreStyle:{ color:hs.ink, fontWeight:800, fontSize:'13px', marginBottom:'5px', fontVariantNumeric:'tabular-nums' },
+              shapeStyle:this.SHAPE[h.tier],
+              tinyBadgeStyle:{ display:'inline-flex', alignItems:'center', gap:'4px', padding:'2px 6px', borderRadius:'5px', background:hs.bg, color:hs.ink, fontWeight:700, fontSize:'9px', letterSpacing:'.03em' },
+              barStyle:{ width:'100%', maxWidth:'34px', height:Math.max(6,Math.round(h.score/100*100))+'px', background:hs.fill, borderRadius:'4px 4px 0 0', opacity: h.tier==='low'?0.65:1 }
+            };
+          }),
+          interventions: ivs.map(iv => {
+            const done = iv.status==='completed', prog = iv.status==='in_progress', dismissed = iv.status==='dismissed';
+            const stColor = done ? this.SEV.low : (prog ? this.SEV.medium : (dismissed ? { ink:'#8A95A2', bg:'#F0F3F5' } : { ink:accInk, bg:'#E3F1F2' }));
+            const OUT = { improved:this.SEV.low, no_change:this.SEV.medium, worsened:this.SEV.high };
+            const ghost = { fontSize:'11.5px', fontWeight:700, padding:'6px 11px', borderRadius:'8px', border:'1px solid #DDE4E9', background:'#fff', color:accInk };
+            const ghostMuted = { fontSize:'11.5px', fontWeight:600, padding:'6px 11px', borderRadius:'8px', border:'1px solid #E7ECF0', background:'#fff', color:'#9AA4B1' };
+            const actions = [];
+            if (iv.status==='open' || iv.status==='suggested') {
+              actions.push({ key:iv.id+'-start', label:'Start', onClick:() => this.setIvStatus(iv.id,'in_progress'), style:ghost });
+              actions.push({ key:iv.id+'-done', label:'Mark complete', onClick:() => this.setIvStatus(iv.id,'completed'), style:ghost });
+              actions.push({ key:iv.id+'-dis', label:'Dismiss', onClick:() => this.setIvStatus(iv.id,'dismissed'), style:ghostMuted });
+            } else if (iv.status==='in_progress') {
+              actions.push({ key:iv.id+'-done', label:'Mark complete', onClick:() => this.setIvStatus(iv.id,'completed'), style:ghost });
+            } else if (dismissed) {
+              actions.push({ key:iv.id+'-reopen', label:'Reopen', onClick:() => this.setIvStatus(iv.id,'open'), style:ghostMuted });
+            }
+            const showOutcomePicker = done && !iv.outcome;
+            const outcomeOptions = ['improved','no_change','worsened'].map(o => {
+              const c = OUT[o];
+              return { key:iv.id+'-'+o, label:this.OUTCOME_LABEL[o], onClick:() => this.setIvOutcome(iv.id,o),
+                style:{ fontSize:'11.5px', fontWeight:700, padding:'6px 11px', borderRadius:'8px', border:'1px solid '+c.ink+'44', background:c.bg, color:c.ink } };
+            });
+            const outc = iv.outcome ? OUT[iv.outcome] : null;
+            return {
+              typeLabel:this.TYPE_LABEL[iv.type], title:iv.title,
+              statusLabel:this.STATUS_LABEL[iv.status],
+              statusStyle:{ fontSize:'10px', fontWeight:700, letterSpacing:'.03em', padding:'2px 7px', borderRadius:'6px', background:stColor.bg, color:stColor.ink },
+              assigned:iv.assigned_to_name, created:iv.created_at,
+              hasOutcome: !!iv.outcome,
+              outcomeLabel: iv.outcome ? this.OUTCOME_LABEL[iv.outcome] : '',
+              outcomeStyle:{ fontSize:'10.5px', fontWeight:700, color: outc?outc.ink:'#6B7686', background: outc?outc.bg:'#F0F3F5', padding:'2px 7px', borderRadius:'6px' },
+              hasActions: actions.length>0, actions,
+              showOutcomePicker, outcomeOptions
+            };
+          }),
+          noInterventions: ivs.length === 0
+        };
+      }
+    }
+
+    // log modal
+    const logStudent = this.students().find(x => x.roll === this.state.logStudentId);
+    const logType = this.state.logForm.type;
+    const isMinor = !!(logStudent && logStudent.minor);
+    const needsConsent = logType === 'parent_contact' && isMinor;
+    const adultParentNote = logType === 'parent_contact' && !isMinor;
+    const titleFilled = !!(this.state.logForm.title && this.state.logForm.title.trim());
+    const logTypes = Object.keys(this.TYPE_LABEL).map(k => ({
+      label:this.TYPE_LABEL[k],
+      onSelect:() => this.selectType(k),
+      style: (k===logType)
+        ? { padding:'10px 12px', borderRadius:'9px', border:'1.5px solid '+acc, background:'#E3F1F2', color:accInk, fontWeight:700, fontSize:'13px', textAlign:'left' }
+        : { padding:'10px 12px', borderRadius:'9px', border:'1px solid #E1E7EC', background:'#fff', color:'#5A6573', fontWeight:600, fontSize:'13px', textAlign:'left' }
+    }));
+
+    const setNormal = () => this.setBoardState('normal');
+    const setEmpty = () => this.setBoardState('empty');
+    const setErrorState = () => this.setBoardState('error');
+    const demoBtn = (active) => ({ flex:1, fontSize:'11px', fontWeight:700, padding:'6px 0', borderRadius:'7px', border:'1px solid '+(active?acc:'#E1E7EC'), background:active?'#E3F1F2':'#fff', color:active?accInk:'#8A95A2' });
+
+    // ----- alerts -----
+    const td = this.trendData();
+    const alertItems = this.ALERTS.map(a => {
+      const sev = this.SEV[this.TIER_SEV[a.to]];
+      return {
+        key:a.roll, name:a.name, meta:a.roll+' · '+a.dept, when:a.when,
+        transition: a.from.charAt(0).toUpperCase()+a.from.slice(1)+' → '+a.to.toUpperCase(),
+        transStyle:{ display:'inline-flex', alignItems:'center', gap:'5px', fontSize:'10.5px', fontWeight:700, padding:'2px 7px', borderRadius:'6px', background:sev.bg, color:sev.ink },
+        shapeStyle:this.SHAPE[a.to],
+        scoreStyle:{ color:sev.ink, fontWeight:800, fontSize:'17px', fontVariantNumeric:'tabular-nums' },
+        score:a.score,
+        onOpen:() => this.openAlertStudent(a.roll)
+      };
+    });
+    const alertBadge = !this.state.alertsRead && this.ALERTS.length > 0;
+
+    // ----- assign mentor -----
+    const assignItems = this.UNASSIGNED.map(u => {
+      const assigned = !!this.state.mentorAssignments[u.roll];
+      return {
+        key:u.roll, name:u.name, meta:u.roll+' · '+u.dept, assigned,
+        tierBadgeStyle:this.tierBadgeStyle(u.tier,false),
+        shapeStyle:this.SHAPE[u.tier], tierLabel:u.tier.toUpperCase(),
+        scoreStyle:{ color:this.SEV[this.TIER_SEV[u.tier]].ink, fontWeight:800, fontSize:'17px', fontVariantNumeric:'tabular-nums' },
+        score:u.score,
+        assignedTo: assigned ? this.state.mentorAssignments[u.roll] : '',
+        onAssign:() => this.assignMentor(u.roll),
+        btnStyle: assigned
+          ? { fontSize:'11.5px', fontWeight:700, padding:'7px 12px', borderRadius:'8px', background:'#E7F4EC', color:this.SEV.low.ink, display:'inline-flex', alignItems:'center', gap:'5px', whiteSpace:'nowrap' }
+          : { fontSize:'11.5px', fontWeight:700, padding:'7px 12px', borderRadius:'8px', background:acc, color:'#fff', whiteSpace:'nowrap' },
+        btnLabel: assigned ? '✓ Assigned' : 'Assign to me'
+      };
+    });
+    const assignedCount = Object.keys(this.state.mentorAssignments).length;
+    const remaining = 190 - assignedCount;
+
+    return {
+      // screen flags
+      isBoard: this.state.screen==='board',
+      isStudent: this.state.screen==='student' && !!cur,
+      stale: this.state.stale,
+      // board
+      cohortCount: this.students().filter(s => s.tier!=='low').length,
+      resultCount: list.length,
+      isError: bs==='error', isEmpty: bs==='empty',
+      showFilterEmpty: bs==='normal' && list.length===0,
+      showList: bs==='normal' && list.length>0,
+      students,
+      // filter chips
+      chipHigh:this.chip(this.state.tier.high,acc,accInk),
+      chipWatch:this.chip(this.state.tier.watch,acc,accInk),
+      chipLow:this.chip(this.state.tier.low,acc,accInk),
+      toggleHigh:()=>this.toggleTier('high'), toggleWatch:()=>this.toggleTier('watch'), toggleLow:()=>this.toggleTier('low'),
+      segAll:this.seg(this.state.type==='all',acc,accInk), segAtt:this.seg(this.state.type==='attendance',acc,accInk),
+      segAcad:this.seg(this.state.type==='academic',acc,accInk), segFee:this.seg(this.state.type==='fee',acc,accInk),
+      typeAll:()=>this.setType('all'), typeAtt:()=>this.setType('attendance'), typeAcad:()=>this.setType('academic'), typeFee:()=>this.setType('fee'),
+      clearFilters:this.clearFilters, retry:this.retry,
+      // search
+      search:this.state.search, setSearch:this.setSearch, clearSearch:this.clearSearch,
+      hasSearch: (this.state.search||'').trim().length > 0,
+      // alerts
+      alertsOpen:this.state.alertsOpen, toggleAlerts:this.toggleAlerts, closeAlerts:this.closeAlerts,
+      alertItems, alertBadge, alertCount:this.ALERTS.length,
+      bellStyle:{ position:'relative', width:'40px', height:'40px', borderRadius:'9px', border:'1px solid '+(this.state.alertsOpen?acc:'#E1E7EC'), background:this.state.alertsOpen?'#E3F1F2':'#fff', color:this.state.alertsOpen?accInk:'#5A6573', fontSize:'17px', display:'flex', alignItems:'center', justifyContent:'center', flex:'none' },
+      // assign mentor
+      assignOpen:this.state.assignOpen, openAssign:this.openAssign, closeAssign:this.closeAssign,
+      assignItems, assignRemaining:remaining,
+      // trend
+      trendBars:td.bars, trendGrowth:td.growthLabel,
+      // student
+      cur: cur || {},
+      openLogCurrent: () => this.openLog(this.state.studentId),
+      goBoard:this.goBoard,
+      // styles
+      primaryBtnStyle, secondaryBtnStyle, linkBtnStyle, logGhostStyle,
+      markStyle:{ width:'30px', height:'30px', borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:800, fontSize:'15px', background:acc },
+      navBoardStyle:this.navStyle(this.state.screen==='board'||this.state.screen==='student', acc, accInk),
+      navDashStyle:this.navStyle(this.state.screen==='dashboard', acc, accInk),
+      goDashboard:this.goDashboard,
+      isDashboard:this.state.screen==='dashboard',
+      dashKpis:dd.kpis, tierDist:dd.tierDist, depts:dd.depts, topStudents:dd.topStudents,
+      // modals
+      showLog: this.state.modal==='log',
+      showConsent: this.state.modal==='consent',
+      logName: logStudent ? logStudent.name : '',
+      logRoll: logStudent ? logStudent.roll : '',
+      logFirstName: logStudent ? logStudent.name.split(' ')[0] : '',
+      logForm: this.state.logForm,
+      logTypes, needsConsent, adultParentNote,
+      titlePlaceholder: this.TITLE_HINT[logType],
+      setTitle:this.setTitle, setAssignee:this.setAssignee,
+      primaryLog:this.primaryLog, closeModal:this.closeModal, stop:this.stop, backToLog:this.backToLog,
+      logDisabled: !titleFilled,
+      logPrimaryLabel: needsConsent ? 'Review consent →' : 'Log intervention',
+      logPrimaryStyle: titleFilled
+        ? { background:acc, color:'#fff', fontWeight:700, fontSize:'13.5px', padding:'10px 18px', borderRadius:'9px' }
+        : { background:'#C7D0D8', color:'#fff', fontWeight:700, fontSize:'13.5px', padding:'10px 18px', borderRadius:'9px', cursor:'not-allowed' },
+      // consent
+      consentGiven:this.state.consentGiven, toggleConsent:this.toggleConsent, confirmConsent:this.confirmConsent,
+      consentDisabled: !this.state.consentGiven,
+      consentBorder: this.state.consentGiven ? acc : '#EBDCB4',
+      consentBg: this.state.consentGiven ? '#E3F1F2' : '#FDF9EE',
+      consentPrimaryStyle: this.state.consentGiven
+        ? { background:acc, color:'#fff', fontWeight:700, fontSize:'13.5px', padding:'10px 18px', borderRadius:'9px' }
+        : { background:'#C7D0D8', color:'#fff', fontWeight:700, fontSize:'13.5px', padding:'10px 18px', borderRadius:'9px', cursor:'not-allowed' },
+      // toast
+      toast:this.state.toast,
+      // demo panel
+      setNormal, setEmpty, setErrorState, toggleStale:this.toggleStale,
+      demoNormal:demoBtn(bs==='normal'), demoEmpty:demoBtn(bs==='empty'), demoError:demoBtn(bs==='error'),
+      demoStale:{ display:'flex', alignItems:'center', gap:'7px', width:'100%', fontSize:'11.5px', fontWeight:700, padding:'7px 9px', borderRadius:'7px', border:'1px solid '+(this.state.stale?acc:'#E1E7EC'), background:this.state.stale?'#E3F1F2':'#fff', color:this.state.stale?accInk:'#8A95A2' },
+      staleDotStyle:{ width:'8px', height:'8px', borderRadius:'50%', background:this.state.stale?acc:'#C7D0D8', flex:'none' }
+    };
+  }
+
+  chip(active, acc, accInk) {
+    return active
+      ? { display:'inline-flex', alignItems:'center', gap:'6px', padding:'6px 11px', borderRadius:'8px', border:'1.5px solid '+acc, background:'#fff', color:'#16202C', fontWeight:700, fontSize:'12.5px' }
+      : { display:'inline-flex', alignItems:'center', gap:'6px', padding:'6px 11px', borderRadius:'8px', border:'1px solid #E1E7EC', background:'#fff', color:'#9AA4B1', fontWeight:600, fontSize:'12.5px', opacity:.75 };
+  }
+  seg(active, acc, accInk) {
+    return active
+      ? { padding:'6px 12px', borderRadius:'7px', background:'#E3F1F2', color:accInk, fontWeight:700, fontSize:'12.5px' }
+      : { padding:'6px 12px', borderRadius:'7px', background:'transparent', color:'#8A95A2', fontWeight:600, fontSize:'12.5px' };
+  }
+}
+</script>
+</body>
+</html>

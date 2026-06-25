@@ -5,6 +5,7 @@ input (spec §14 security)."""
 
 from collections.abc import Sequence
 from dataclasses import asdict
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -19,6 +20,7 @@ from app.repositories.risk_repository import RiskRepository
 from app.schemas.risk import (
     AlertResponse,
     AtRiskStudentResponse,
+    DepartmentSummary,
     InterventionCreateRequest,
     InterventionOutcomeCreateRequest,
     InterventionOutcomeResponse,
@@ -30,6 +32,10 @@ from app.schemas.risk import (
     RiskConfigResponse,
     RiskConfigUpdateRequest,
     RiskFindingResponse,
+    RiskSummaryByDepartmentResponse,
+    RiskSummaryByTier,
+    RiskSummaryByType,
+    RiskSummaryResponse,
     StudentRiskDetailResponse,
 )
 from app.services.risk import interventions as interventions_service
@@ -75,6 +81,33 @@ def _assessment_to_response(
             for f in findings
         ],
     )
+
+
+@router.get("/summary", response_model=RiskSummaryResponse)
+def get_summary(
+    current_user: CurrentUser = Depends(get_current_user),
+    session: Session = Depends(get_tenant_session),
+) -> RiskSummaryResponse:
+    _ensure_not_student_role(current_user)
+    visible = _visible_ids(session, current_user)
+    data = RiskRepository(session, current_user.tenant_id).summary(student_ids=visible)
+    return RiskSummaryResponse(
+        total_assessed=data["total_assessed"],
+        by_tier=RiskSummaryByTier(**data["by_tier"]),
+        by_risk_type=RiskSummaryByType(**data["by_risk_type"]),
+        generated_at=datetime.now(UTC),
+    )
+
+
+@router.get("/summary/by-department", response_model=RiskSummaryByDepartmentResponse)
+def get_summary_by_department(
+    current_user: CurrentUser = Depends(get_current_user),
+    session: Session = Depends(get_tenant_session),
+) -> RiskSummaryByDepartmentResponse:
+    _ensure_not_student_role(current_user)
+    visible = _visible_ids(session, current_user)
+    rows = RiskRepository(session, current_user.tenant_id).summary_by_department(student_ids=visible)
+    return RiskSummaryByDepartmentResponse(departments=[DepartmentSummary(**row) for row in rows])
 
 
 @router.get("/students", response_model=list[AtRiskStudentResponse])

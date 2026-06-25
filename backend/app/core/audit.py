@@ -1,4 +1,5 @@
 from contextvars import ContextVar
+from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
@@ -14,6 +15,14 @@ actor_user_id_ctx: ContextVar[str | None] = ContextVar("actor_user_id", default=
 def _serialize(value: Any) -> Any:
     if isinstance(value, UUID):
         return str(value)
+    if isinstance(value, Decimal):
+        # Same fix as normalizers.py::to_jsonable() for the identical reason:
+        # psycopg's JSON encoder doesn't know how to serialize Decimal. The
+        # ingestion pipeline never hits this (cleaned_payload is float-ified
+        # before InternalMark/Fee construction), but any direct ORM write of
+        # a Decimal-typed column -- e.g. scripts/seed_demo.py's canonical
+        # writes -- does. Found running seed_demo.py (Phase 3 §C.1).
+        return float(value)
     if hasattr(value, "isoformat"):
         return value.isoformat()
     return value

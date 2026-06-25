@@ -1,0 +1,22 @@
+import type { components } from "./schema";
+
+export type TokenResponse = components["schemas"]["TokenResponse"];
+export type AtRiskStudentResponse = components["schemas"]["AtRiskStudentResponse"];
+export type StudentRiskDetailResponse = components["schemas"]["StudentRiskDetailResponse"];
+export type RiskAssessmentResponse = components["schemas"]["RiskAssessmentResponse"];
+export type RiskFindingResponse = components["schemas"]["RiskFindingResponse"];
+export type RiskSummaryResponse = components["schemas"]["RiskSummaryResponse"];
+export type RiskSummaryByDepartmentResponse = components["schemas"]["RiskSummaryByDepartmentResponse"];
+export type DepartmentSummary = components["schemas"]["DepartmentSummary"];
+export type InterventionResponse = components["schemas"]["InterventionResponse"];
+export type InterventionCreateRequest = components["schemas"]["InterventionCreateRequest"];
+export type InterventionUpdateRequest = components["schemas"]["InterventionUpdateRequest"];
+export type InterventionOutcomeCreateRequest = components["schemas"]["InterventionOutcomeCreateRequest"];
+export type InterventionOutcomeResponse = components["schemas"]["InterventionOutcomeResponse"];
+export type AlertResponse = components["schemas"]["AlertResponse"];
+export type RiskConfigResponse = components["schemas"]["RiskConfigResponse"];
+export type RiskConfigUpdateRequest = components["schemas"]["RiskConfigUpdateRequest"];
+export type Student360Response = components["schemas"]["Student360Response"];
+export type ImportBatchResponse = components["schemas"]["ImportBatchResponse"];
+export type RecomputeRequest = components["schemas"]["RecomputeRequest"];
+export type RecomputeSummaryResponse = components["schemas"]["RecomputeSummaryResponse"];

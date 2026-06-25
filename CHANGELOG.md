@@ -576,3 +576,288 @@ hardening part 1) — this change introduced no new typing debt.
 - **No changes outside** `app/models/canonical.py`, the one new migration
   (`d67e374fb99f`), and the new tests in `tests/test_ingestion_pipeline.py`.
 - One commit.
+
+## Phase 3, PART A + PART C — `IMPLEMENTATION_GUIDE_Phase3_PartA_Frontend_SeedData.md` (backend + seed data complete; PART B frontend tracked separately)
+
+### PART A — backend additions
+
+**A.1 CORS**: `CORSMiddleware` added in `app/main.py`, origins from new
+`FRONTEND_ORIGINS` env var (`app/core/config.py`, default
+`http://localhost:5173`). `allow_credentials=False` — auth is Bearer-token-
+in-header (existing JWT scheme), never cookies, so credentialed CORS was
+never needed; combining `allow_origins=["*"]` with credentials is the
+specific footgun the guide warned against, and neither side of that
+combination is in play here.
+
+**A.2/A.3 `GET /risk/summary`, `GET /risk/summary/by-department`**: implemented
+as two new `RiskRepository` methods (`summary`, `summary_by_department`),
+reusing the exact role-scoping path `GET /risk/students` already uses
+(`visible_student_ids` + `has_full_visibility`) — privileged roles see the
+whole tenant, faculty see only their `faculty_scopes`, student role is
+rejected by `_ensure_not_student_role` (403, same as the rest of `/risk/*`).
+Each is one or two `GROUP BY` aggregate queries regardless of student count
+(§A.5.5's no-N+1 acceptance test asserts this directly by counting SQL
+statements via a `before_cursor_execute` listener at N=3 vs N=33 students).
+
+Decisions where the guide was silent:
+- **`generated_at`** is wall-clock time at response construction, not a
+  derived "freshest underlying data" timestamp — the guide's example JSON
+  doesn't define which, and "when was this summary generated" is the more
+  natural reading of the field name.
+- **`by-department` ordering** is alphabetical by department label
+  (`"Unassigned"` sorts in place, not pinned last) — the guide's example
+  order (CSE, then Unassigned) isn't asserted as a contract anywhere in
+  PART B's bindings, so no special-casing was added for it.
+- **`"Unassigned"` bucket** is `Department.code` resolved via `Student ->
+  Programme -> Department`, `COALESCE`'d to the literal string
+  `"Unassigned"` when unresolvable (no programme, or a programme with no
+  department) — exactly §B.4's instruction not to conflate "no department"
+  with "no mentor".
+
+### A bug found and fixed along the way (not named in the guide)
+
+Running `scripts/seed_demo.py` against a real Postgres surfaced a second
+instance of the same bug class as Phase 2 hardening part 1's "Decimal/JSONB"
+fix (above): `app/core/audit.py::_serialize()` converts `UUID` and
+date-like values for the JSONB `audit_log.old_value`/`new_value` snapshot,
+but never handled `Decimal` — so any **direct** ORM write of an
+`InternalMark`/`Fee` row with a real `Decimal` value (`max_marks`,
+`obtained`, `amount_due`, `amount_paid`) crashed on `session.flush()` with
+`TypeError: Object of type Decimal is not JSON serializable`. The ingestion
+pipeline never hits this: `canonical_loader.py`'s callers always construct
+these rows from `StagingRecord.cleaned_payload`, which the Phase 2 fix
+already float-ifies via `to_jsonable()` before it's ever stored — so by the
+time `cleaned["max_marks"]` reaches the ORM constructor it's already a
+`float`, not a `Decimal`. `scripts/seed_demo.py` (per §C.1.5, writing
+canonical rows directly, bypassing ingestion on purpose) does not go
+through that float-ifying boundary, so it hit the bug immediately on the
+first `InternalMark` insert. Reproduced independently of the seed script
+with a minimal ORM-only repro (both against the dev DB and inside the
+testcontainers test environment) before fixing, to confirm it's a general
+latent bug and not seed-script-specific.
+
+**Fix**: `_serialize()` now converts `Decimal -> float`, the identical
+conversion `to_jsonable()` already uses for the same reason, in the
+one place that was missing it. **New regression test**
+(`tests/test_ingestion_pipeline.py::test_internal_mark_with_decimal_values_writes_audit_row_without_error`)
+constructs an `InternalMark` with genuine `Decimal` values directly via the
+ORM (the exact pattern `seed_demo.py` uses) and asserts the flush succeeds
+and the resulting `audit_log.new_value` round-trips as JSON-safe floats.
+
+### PART A acceptance results
+
+`tests/test_risk_summary.py` (new, 5 tests): tier/type counts correct;
+faculty-vs-privileged role scoping; tenant isolation; `by-department`
+grouping incl. the `Unassigned` bucket; bounded query count regardless of
+student count. Full suite: **110/110 passing** (109 prior + 1 new
+regression test for the audit bug above; `test_risk_summary.py`'s 5 tests
+bring the file-level count to 110 — the 1 net test beyond "104 + 5" reflects
+the regression test, not double-counting). `test_rls_coverage.py` green,
+unaffected (no new tables). `ruff check app tests scripts` clean. `mypy`:
+still exactly 75 pre-existing errors, unchanged — no new typing debt.
+
+### PART C — seed / test data
+
+`scripts/seed_demo.py` (idempotent: skips data creation and just
+recomputes if the `demo-eng` tenant already exists) creates tenant "Demo
+Engineering College", the three named users (`principal`, `meera.iyer`
+faculty scoped to `department=CSE`, `admin`), CSE/MECH/ECE/CIVIL
+departments + programmes, CSE courses (DBMS/OS/CN/TOC), the named CSE
+cohort from §C.2, ~17 clean filler CSE students, and ~55 other-department/
+unassigned students with a deterministic clean/watch/high profile mix —
+then calls `recompute_for_tenant` once and prints credentials, tenant id,
+and tier counts.
+
+Verified end-to-end against a real Postgres instance (not just unit-level
+reasoning): every named-cohort student's attendance/marks/fee inputs were
+first checked against the live `RulesRiskEvaluator` in isolation to confirm
+they produce exactly the findings/tier the spec table names, *then* the
+full script was run against a migrated dev database. Result: `evaluated=79
+changed=79 unchanged=0 skipped=0 errors=0`, tier counts `{low: 59, watch:
+13, high: 7}`. Re-running is idempotent (`changed=0 unchanged=79`, no
+duplicate rows). A real API smoke test (login as each seeded user, hit
+`/risk/students`, `/risk/summary`, `/risk/summary/by-department`,
+`/risk/students/{id}`, `/risk/interventions?student_id=`) confirmed every
+§C.6 verification point: the faculty board shows exactly Aarav/Mohammed/
+Sneha/Ananya/Diya (watch+high) and excludes Rohit/Karthik (low); the
+principal's dashboard summary and by-department tiles are populated;
+Aarav's 360 shows all 3 expected findings, a worsening history
+(low→watch→high across three assessments — the two oldest seeded directly
+as `is_current=false` history rows since the engine only ever computes
+"today"), and the completed `mentor_meeting` intervention; Ananya's
+assessment carries `subject_minor_status: "minor"`; and a `parent_contact`
+intervention attempt for Ananya without `guardian_consent_confirmed`
+correctly 403s (Phase 2 §9 enforcement, exercised here, not re-implemented).
+
+Decisions where §C.2's table was silent or only approximate:
+- The table's attendance percentages are illustrative ("60% over ~100
+  sessions"), not exact fractions of the session counts chosen — two
+  students land one rounding step off the table's literal percentage
+  (Ananya/Diya compute to 70% over 30 sessions, not 71%; Karthik to 96%
+  over 50, not 95%) because those session counts don't divide evenly into
+  the stated percentage. The **rule outcomes are identical either way**
+  (verified against the live evaluator, see above) — what matters per the
+  guide's own framing note is the findings/tier, not the cosmetic percentage.
+- Attendance session sequences use a deterministic even-distribution
+  algorithm (`even_spread`, a Floyd's-algorithm-style "evenly place k of n"
+  generator) rather than a fixed pattern, so that any 12-session trend
+  sub-window stays close to the overall percentage — this is what keeps
+  students meant to trigger only `ATTENDANCE_BELOW_THRESHOLD` from also
+  spuriously triggering `ATTENDANCE_DECLINING`, confirmed by direct
+  evaluator runs for every named-cohort and filler/other-department profile
+  before committing to the values.
+- Aarav's "worsening history" and "completed mentor-meeting intervention"
+  (§C.6's verification script, not named as a build requirement in §C.1-C.4)
+  were added since §C.6 explicitly checks for them: two `is_current=false`
+  `RiskAssessment` rows are inserted directly at `now() - 60d` (low, score
+  10) and `now() - 21d` (watch, score 35), so the 360's history timeline
+  shows low → watch → high leading into today's engine-computed current
+  assessment; one `completed` `mentor_meeting` `Intervention` + outcome is
+  added for the same reason.
+- The ~40-other-department / ~15-unassigned split (§C.3/C.4, both
+  explicitly "exact counts don't need to match") uses a deterministic
+  70/20/10 clean/watch/high profile mix by student index, not randomness —
+  reproducible across re-seeds of a dropped-and-recreated tenant, which
+  matters for review/debugging even though the script's own idempotency
+  path (skip-if-exists) doesn't depend on it.
+
+`scripts/sample_data/*.csv` (`students.csv`, `attendance.csv`,
+`internal_marks.csv`, `fees.csv`) follow §C.5's exact header shapes,
+extended from the guide's 1-3-line examples to a handful of rows each
+(still "small", per the guide's own framing) across the same four
+named-cohort students so the set is internally consistent for manual
+testing. Verified by actually running the full `create source → create
+mapping → upload → recompute` flow against the seeded `demo-eng` tenant for
+all four entity types: all rows loaded, zero quarantined,
+`risk_recompute_status: "ok"` for every batch. (The demo tenant was reset
+and re-seeded from scratch afterward, since this verification's uploads
+would otherwise have mixed extra attendance/marks/fee rows into the
+canonical seed's carefully-tuned named-cohort data.)
+
+### PART C confirmations
+
+- **No new runtime dependencies** (the verification script used `httpx`,
+  already a transitive dependency of the `test` extra; not added to
+  `pyproject.toml`'s runtime deps).
+- **Backend changes limited to**: `app/core/config.py`, `app/main.py`,
+  `app/repositories/risk_repository.py`, `app/schemas/risk.py`,
+  `app/api/routes/risk.py`, `app/core/audit.py` (the bug fix above),
+  `tests/test_risk_summary.py` (new), `tests/test_ingestion_pipeline.py`
+  (one new regression test), `.env.example`, plus the new
+  `scripts/seed_demo.py` and `scripts/sample_data/*.csv`. No migrations —
+  PART A added no new tables/columns.
+
+## Phase 3, PART B — frontend (`IMPLEMENTATION_GUIDE_Phase3_PartA_Frontend_SeedData.md` §B, complete)
+
+New Vite + React + TypeScript app at `frontend/`, implementing the approved
+`Risk Copilot.dc.html` design (Institution overview, Student 360, Risk
+Board, empty/error/stale states) against the live API. All risk
+scores/tiers/findings rendered are engine-computed, fetched from PART A's
+endpoints — the mockup's numbers were illustrative only and are not
+hardcoded anywhere in the app.
+
+### Stack and decisions made where `IMPLEMENTATION_SPEC_Phase3.md` was
+missing (per the user's earlier "proceed with sensible defaults" call)
+
+- **Vite + React 18 + TypeScript**, React Router v6 for routing, TanStack
+  Query for server state/caching, Axios for HTTP.
+- **Auth**: JWT access/refresh matching `auth.py`'s existing contract — no
+  new backend auth surface. Tokens in memory + `localStorage` (documented
+  in `tokenStorage.ts` as never trusted for authorization decisions, only
+  for UI state; the server remains the only security boundary). A single
+  in-flight refresh promise in the Axios response interceptor collapses
+  concurrent 401s into one `/auth/refresh` call; refresh failure clears
+  tokens and routes to `/login`.
+- **Types**: generated via `openapi-typescript` against the live
+  `/openapi.json`, re-exported by name from `src/api/types.ts` rather than
+  used inline, so a future schema regen only needs review at one file.
+- **a11y**: basic — labeled form fields, semantic roles for tier badges
+  (not color-only: `SHAPE` tokens give high/watch/low distinct glyphs,
+  per the design's colour-vision-safe treatment), focus-visible states on
+  interactive elements.
+- **Role gating is UX-only** (`RequirePrivileged`/`RequireAdmin` hide
+  nav items and routes), explicitly commented in `RequireAuth.tsx` as not
+  the real boundary — `GET /risk/summary` etc. already enforce role/tenant
+  scope server-side regardless of what the frontend shows.
+
+### Bug found and fixed during verification: stale post-sign-out redirect
+
+Browser verification (faculty sign-out → principal login, same tab)
+surfaced a real bug: the principal's login landed on the faculty user's
+last-visited `/students/<id>` page instead of `/board`/`/dashboard`.
+
+Root cause: `RequireAuth`'s redirect (`<Navigate to="/login"
+state={{from: location}} replace />`) attaches the page being left as
+`from` for *any* unauthenticated render — including the deliberate
+sign-out flow — and `history.state` survives a full reload, so that stale
+`from` could be picked up by the next login on the same tab. Reordering
+the sign-out handler's `logout()`/`navigate()` calls did not fix it: added
+debug logging confirmed `RequireAuth` re-fires against the *pre-navigate*
+location after the explicit `navigate(..., {state: null})` call had
+already committed, because the imperative navigate's history update and
+the auth context's `user = null` update don't reliably land in the same
+React commit — so `RequireAuth`'s stale-location render clobbers the
+explicit redirect's `state: null` with its own `{from: <old page>}`.
+
+Fixed with a plain module-level flag (`voluntarySignOut` in
+`RequireAuth.tsx`), not React state, since the failure mode is exactly a
+render-timing race that React state updates don't protect against: the
+sign-out handler sets it synchronously before calling `logout()`;
+`RequireAuth` checks it (no React render dependency) and omits `from`
+when set, however many times it re-fires before `/login` actually mounts;
+`LoginPage` clears it on mount so a later genuine session-expiry redirect
+on the same tab still gets a correct `from`. Verified via Playwright:
+`history.state` after sign-out is now `{"usr":null,...}` (was previously
+carrying the stale `from`), and the principal's subsequent login lands on
+`/board` as designed.
+
+### Verification (Playwright against the seeded `demo-eng` tenant)
+
+- **Faculty** (`meera.iyer@demo-eng.edu`, CSE-scoped): Risk Board shows
+  exactly the 5 CSE students at watch/high tier (Aarav 95, Mohammed Faiz
+  50, Sneha Reddy 40, Ananya Nair 40, Diya Patel 40) with correct tier
+  colour/shape, no Dashboard nav item; Aarav's Student 360 shows all 3
+  findings, the worsening assessment history, and the completed
+  mentor-meeting intervention; Ananya's 360 shows the minor badge; logging
+  a `parent_contact` intervention for a minor student correctly routes
+  through the consent-gate step before the entry is recorded.
+- **Principal** (full visibility): Dashboard renders 79 assessed across 5
+  departments, KPI tiles (7 high / 13 watch / 59 low), the risk
+  distribution bar, by-department breakdown including the "NO DEPARTMENT"
+  tag for Unassigned, the "Trend builds as risk data accumulates" empty
+  placeholder (correct — single recompute, no history to chart yet), and
+  the top-5 highest-risk-now list.
+- `npx tsc -p tsconfig.app.json --noEmit` clean.
+- Browser console errors: none, across both role flows.
+
+### PART B confirmations
+
+- **No backend changes** beyond PART A/C (no new endpoints, fields, or
+  runtime deps were added to support the frontend).
+- **No frontend fields invented**: every rendered value traces to a field
+  in the generated OpenAPI types; the findings view-model
+  (`findingViewModel.ts`) reads each rule's actual evidence keys (e.g.
+  `value`/`threshold`, `prior_pct`/`recent_pct`, `baseline_pct`/
+  `latest_pct`, `failing_count`, `overdue_days`) rather than the mockup's
+  illustrative `ev` shape.
+
+### PART C re-verification note
+
+Re-verified after PART B: `seed_demo.py` re-run against `demo-eng` confirms
+idempotency (`changed=0 unchanged=79`); a direct DB query confirms all 7
+named-cohort students' score/tier/finding-codes match §C.2 exactly. The
+C.5 sample CSVs were re-verified through the real import API using a
+disposable tenant (`csv-verify-tmp`, dev Postgres only) instead of
+`demo-eng`, to avoid repeating the earlier mid-build CSV-verification
+pollution-and-reset cycle — all four batches completed with 0 quarantined
+rows.
+
+That throwaway tenant is intentionally **not** hard-deleted afterward: the
+app's own DB role (`app_user`) has no `DELETE` grant on most
+tenant-scoped tables (e.g. `intervention_outcomes`) — an append-only/
+audit-safety property of the schema, not an oversight — so removing it
+would require superuser SQL outside the app's normal data-access path.
+Left in place in the dev-only Postgres container; harmless (isolated by
+`tenant_id`/RLS, doesn't touch `demo-eng`). The scratchpad verification
+scripts now reuse this one fixed tenant/source on every re-run instead of
+creating a new one each time, so the artifact doesn't multiply.

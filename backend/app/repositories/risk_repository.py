@@ -6,13 +6,14 @@ tenant_id explicitly, same convention as repositories/base.py."""
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import Row, select
+from sqlalchemy import Row, func, select
 from sqlalchemy.orm import Session
 
 from app.models.canonical import Department, Programme, Student
-from app.models.risk import Intervention, RiskAssessment, RiskFinding
+from app.models.risk import RISK_TYPES, TIERS, Intervention, RiskAssessment, RiskFinding
 
 _ACTIVE_INTERVENTION_STATUSES = ("suggested", "open", "in_progress")
+_UNASSIGNED_DEPARTMENT = "Unassigned"
 
 
 class RiskRepository:
@@ -102,3 +103,73 @@ class RiskRepository:
                 Intervention.status.in_(_ACTIVE_INTERVENTION_STATUSES),
             )
         ).scalars().all()
+
+    def summary(self, *, student_ids: set[UUID] | None) -> dict:
+        """Tile/distribution-bar data for the dashboard (Phase 3 spec §A.2).
+        Two bulk aggregate queries total, regardless of student count --
+        never a per-student loop."""
+        by_tier = dict.fromkeys(TIERS, 0)
+        by_risk_type = dict.fromkeys(RISK_TYPES, 0)
+        if student_ids is not None and not student_ids:
+            return {"total_assessed": 0, "by_tier": by_tier, "by_risk_type": by_risk_type}
+
+        tier_query = select(RiskAssessment.tier, func.count()).where(
+            RiskAssessment.tenant_id == self.tenant_id, RiskAssessment.is_current.is_(True)
+        )
+        if student_ids is not None:
+            tier_query = tier_query.where(RiskAssessment.student_id.in_(student_ids))
+        tier_query = tier_query.group_by(RiskAssessment.tier)
+        for tier, count in self.session.execute(tier_query).all():
+            by_tier[tier] = count
+        total_assessed = sum(by_tier.values())
+
+        # by_risk_type counts *distinct visible students* with >=1 current
+        # finding of that type (spec: "a student may count under several
+        # types") -- not a finding count, so distinct() on student_id.
+        type_query = (
+            select(RiskFinding.risk_type, func.count(func.distinct(RiskAssessment.student_id)))
+            .join(RiskAssessment, RiskAssessment.id == RiskFinding.assessment_id)
+            .where(
+                RiskAssessment.tenant_id == self.tenant_id,
+                RiskAssessment.is_current.is_(True),
+                RiskFinding.tenant_id == self.tenant_id,
+            )
+        )
+        if student_ids is not None:
+            type_query = type_query.where(RiskAssessment.student_id.in_(student_ids))
+        type_query = type_query.group_by(RiskFinding.risk_type)
+        for risk_type, count in self.session.execute(type_query).all():
+            by_risk_type[risk_type] = count
+
+        return {"total_assessed": total_assessed, "by_tier": by_tier, "by_risk_type": by_risk_type}
+
+    def summary_by_department(self, *, student_ids: set[UUID] | None) -> list[dict]:
+        """Dashboard "by department" tiles (Phase 3 spec §A.3). One bulk
+        aggregate query, grouped by department code; students with no
+        resolvable department (no programme, or programme with no
+        department) fall into the "Unassigned" bucket (spec: never the same
+        as "no mentor" -- see CHANGELOG.md)."""
+        if student_ids is not None and not student_ids:
+            return []
+
+        department_label = func.coalesce(Department.code, _UNASSIGNED_DEPARTMENT).label("department")
+        query = (
+            select(department_label, RiskAssessment.tier, func.count())
+            .select_from(RiskAssessment)
+            .join(Student, Student.id == RiskAssessment.student_id)
+            .outerjoin(Programme, Programme.id == Student.programme_id)
+            .outerjoin(Department, Department.id == Programme.department_id)
+            .where(RiskAssessment.tenant_id == self.tenant_id, RiskAssessment.is_current.is_(True))
+        )
+        if student_ids is not None:
+            query = query.where(RiskAssessment.student_id.in_(student_ids))
+        query = query.group_by(department_label, RiskAssessment.tier)
+
+        by_department: dict[str, dict[str, int]] = {}
+        for department, tier, count in self.session.execute(query).all():
+            by_department.setdefault(department, dict.fromkeys(TIERS, 0))[tier] = count
+
+        return [
+            {"department": department, "total": sum(tiers.values()), **tiers}
+            for department, tiers in sorted(by_department.items())
+        ]

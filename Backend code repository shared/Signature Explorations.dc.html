@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet">
+<meta name="design_doc_mode" content="canvas">
+<style>
+  body { font-family: 'Public Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .num { font-variant-numeric: tabular-nums; }
+</style>
+</helmet>
+
+<!-- ============ FRAME A — "Ledger console" : cool blue-grey, indigo accent, inline emphasised evidence ============ -->
+<div style="position:absolute; left:60px; top:80px; width:560px;">
+  <div data-drags-parent="1" style="font:600 13px 'Public Sans'; letter-spacing:.04em; color:#3A4656; margin-bottom:14px; display:flex; align-items:center; gap:10px;">
+    <span style="display:inline-flex; width:22px; height:22px; border-radius:5px; background:#2056C9; color:#fff; align-items:center; justify-content:center; font:700 12px 'Public Sans';">A</span>
+    LEDGER CONSOLE · cool slate · inline evidence
+  </div>
+  <div style="background:#fff; border-radius:3px; box-shadow:0 1px 3px rgba(20,30,45,.10); overflow:hidden; border:1px solid #E5EAEF;">
+    <!-- board header strip -->
+    <div style="display:flex; align-items:baseline; justify-content:space-between; padding:16px 20px 13px; background:#F3F6F9; border-bottom:1px solid #E5EAEF;">
+      <div>
+        <div style="font:700 16px 'Public Sans'; color:#18202B; letter-spacing:-.01em;">At-risk students</div>
+        <div style="font:500 12px 'Public Sans'; color:#6B7686; margin-top:2px;">CSE 3rd year · Sections A &amp; B · 6 flagged</div>
+      </div>
+      <div style="font:600 11px 'Public Sans'; color:#2056C9;">watch + high &darr;</div>
+    </div>
+
+    <!-- ROW 1 — Aarav high -->
+    <div style="display:grid; grid-template-columns:1fr auto; gap:14px; padding:16px 20px; border-bottom:1px solid #EEF2F5;">
+      <div>
+        <div style="display:flex; align-items:center; gap:9px;">
+          <span style="font:700 15px 'Public Sans'; color:#161E29;">Aarav Sharma</span>
+          <span class="num" style="font:600 12px 'Public Sans'; color:#7B8696;">21CSE045</span>
+        </div>
+        <div style="margin-top:9px; display:flex; flex-direction:column; gap:5px;">
+          <div style="font:500 13px 'Public Sans'; color:#36414F;"><span style="font:700 10px 'Public Sans'; letter-spacing:.07em; color:#94A0AE;">ATTENDANCE&nbsp;&nbsp;</span>Attendance <span class="num" style="font-weight:700; color:#161E29;">61%</span> below 75%</div>
+          <div style="font:500 13px 'Public Sans'; color:#36414F;"><span style="font:700 10px 'Public Sans'; letter-spacing:.07em; color:#94A0AE;">ACADEMIC&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="num" style="font-weight:700; color:#161E29;">2</span> internals below 40%</div>
+        </div>
+      </div>
+      <div style="text-align:right; min-width:96px;">
+        <span style="display:inline-flex; align-items:center; gap:6px; padding:3px 9px; border-radius:100px; background:#FBEAE8; color:#B42318; font:700 11px 'Public Sans'; letter-spacing:.03em;"><span style="width:8px; height:8px; background:#B42318;"></span>HIGH</span>
+        <div class="num" style="font:800 28px 'Public Sans'; color:#B42318; line-height:1; margin-top:8px; letter-spacing:-.02em;">78</div>
+        <div style="margin-top:7px; display:flex; gap:2px; justify-content:flex-end;">
+          <span style="width:22px; height:4px; border-radius:2px; background:#1F7A4D33;"></span>
+          <span style="width:22px; height:4px; border-radius:2px; background:#97600A33;"></span>
+          <span style="width:44px; height:4px; border-radius:2px; background:#B42318;"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW 2 — Ananya watch minor -->
+    <div style="display:grid; grid-template-columns:1fr auto; gap:14px; padding:16px 20px;">
+      <div>
+        <div style="display:flex; align-items:center; gap:9px; flex-wrap:wrap;">
+          <span style="font:700 15px 'Public Sans'; color:#161E29;">Ananya Nair</span>
+          <span class="num" style="font:600 12px 'Public Sans'; color:#7B8696;">21CSE077</span>
+          <span style="padding:2px 7px; border-radius:4px; background:#EEF1F8; color:#2056C9; font:700 10px 'Public Sans'; letter-spacing:.04em;">MINOR · consent</span>
+        </div>
+        <div style="margin-top:9px;">
+          <div style="font:500 13px 'Public Sans'; color:#36414F;"><span style="font:700 10px 'Public Sans'; letter-spacing:.07em; color:#94A0AE;">ATTENDANCE&nbsp;&nbsp;</span>Attendance <span class="num" style="font-weight:700; color:#161E29;">71%</span> below 75%</div>
+        </div>
+      </div>
+      <div style="text-align:right; min-width:96px;">
+        <span style="display:inline-flex; align-items:center; gap:6px; padding:3px 9px; border-radius:100px; background:#FAF0DC; color:#8A5800; font:700 11px 'Public Sans'; letter-spacing:.03em;"><span style="width:8px; height:8px; background:#97600A; transform:rotate(45deg);"></span>WATCH</span>
+        <div class="num" style="font:800 28px 'Public Sans'; color:#8A5800; line-height:1; margin-top:8px; letter-spacing:-.02em;">40</div>
+        <div style="margin-top:7px; display:flex; gap:2px; justify-content:flex-end;">
+          <span style="width:22px; height:4px; border-radius:2px; background:#1F7A4D33;"></span>
+          <span style="width:38px; height:4px; border-radius:2px; background:#97600A;"></span>
+          <span style="width:22px; height:4px; border-radius:2px; background:#B4231833;"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 360 score header A -->
+  <div style="background:#fff; border-radius:3px; box-shadow:0 1px 3px rgba(20,30,45,.10); border:1px solid #E5EAEF; margin-top:18px; padding:18px 20px;">
+    <div style="font:700 10px 'Public Sans'; letter-spacing:.09em; color:#94A0AE; margin-bottom:12px;">STUDENT 360 · SCORE HEADER</div>
+    <div style="display:flex; align-items:flex-end; gap:16px;">
+      <div class="num" style="font:800 52px 'Public Sans'; color:#B42318; line-height:.85; letter-spacing:-.03em;">78</div>
+      <div style="padding-bottom:4px;">
+        <span style="display:inline-flex; align-items:center; gap:6px; padding:3px 9px; border-radius:100px; background:#FBEAE8; color:#B42318; font:700 11px 'Public Sans'; letter-spacing:.03em;"><span style="width:8px; height:8px; background:#B42318;"></span>HIGH RISK</span>
+        <div style="font:500 12px 'Public Sans'; color:#6B7686; margin-top:6px;">Updated 2 hrs ago</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;">
+      <div style="position:relative; height:8px; border-radius:4px; display:flex; overflow:hidden;">
+        <span style="flex:25; background:#E7F4EC;"></span><span style="flex:25; background:#FAF0DC;"></span><span style="flex:50; background:#FBEAE8;"></span>
+        <span style="position:absolute; left:78%; top:-3px; width:3px; height:14px; border-radius:2px; background:#B42318;"></span>
+      </div>
+      <div class="num" style="display:flex; justify-content:space-between; font:600 10px 'Public Sans'; color:#94A0AE; margin-top:6px;"><span>0</span><span>low 25</span><span>watch 50</span><span>100</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ FRAME B — "Calm cards" : teal accent, mini value/threshold meters, tinted band track ============ -->
+<div style="position:absolute; left:700px; top:80px; width:560px;">
+  <div data-drags-parent="1" style="font:600 13px 'Public Sans'; letter-spacing:.04em; color:#3A4656; margin-bottom:14px; display:flex; align-items:center; gap:10px;">
+    <span style="display:inline-flex; width:22px; height:22px; border-radius:5px; background:#0E7C86; color:#fff; align-items:center; justify-content:center; font:700 12px 'Public Sans';">B</span>
+    CALM CARDS · teal accent · value-vs-threshold meters
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:12px;">
+    <!-- card header -->
+    <div style="display:flex; align-items:baseline; justify-content:space-between; padding:2px 4px;">
+      <div style="font:700 16px 'Public Sans'; color:#16202C; letter-spacing:-.01em;">At-risk students <span style="font:600 13px 'Public Sans'; color:#8A95A2;">· 6 flagged</span></div>
+      <div style="font:600 11px 'Public Sans'; color:#0E7C86;">watch + high</div>
+    </div>
+
+    <!-- CARD 1 Aarav -->
+    <div style="background:#fff; border-radius:6px; box-shadow:0 1px 3px rgba(20,30,45,.09); border:1px solid #E7ECF0; padding:15px 17px 15px 0; display:grid; grid-template-columns:5px 1fr auto; gap:15px; overflow:hidden;">
+      <span style="background:#B42318; border-radius:0 3px 3px 0;"></span>
+      <div>
+        <div style="display:flex; align-items:center; gap:9px;">
+          <span style="font:700 15px 'Public Sans'; color:#16202C;">Aarav Sharma</span>
+          <span class="num" style="font:600 12px 'Public Sans'; color:#828D9B;">21CSE045</span>
+        </div>
+        <div style="margin-top:11px; display:flex; flex-direction:column; gap:11px;">
+          <div>
+            <div style="display:flex; justify-content:space-between; font:500 12.5px 'Public Sans'; color:#3A4654; margin-bottom:4px;"><span><span style="color:#0E7C86; font-weight:700;">●</span> Attendance below threshold</span><span class="num" style="font-weight:700; color:#16202C;">61% / 75%</span></div>
+            <div style="position:relative; height:5px; background:#EEF1F4; border-radius:3px;"><span style="position:absolute; left:0; top:0; bottom:0; width:61%; background:#B42318; border-radius:3px;"></span><span style="position:absolute; left:75%; top:-2px; bottom:-2px; width:2px; background:#3A4654;"></span></div>
+          </div>
+          <div>
+            <div style="display:flex; justify-content:space-between; font:500 12.5px 'Public Sans'; color:#3A4654; margin-bottom:4px;"><span><span style="color:#6E5BB8; font-weight:700;">●</span> 2 internals failing</span><span class="num" style="font-weight:700; color:#16202C;">38% / 40%</span></div>
+            <div style="position:relative; height:5px; background:#EEF1F4; border-radius:3px;"><span style="position:absolute; left:0; top:0; bottom:0; width:38%; background:#B42318; border-radius:3px;"></span><span style="position:absolute; left:40%; top:-2px; bottom:-2px; width:2px; background:#3A4654;"></span></div>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:right; min-width:78px;">
+        <span style="display:inline-flex; align-items:center; gap:5px; padding:3px 8px; border-radius:5px; background:#FBEAE8; color:#B42318; font:700 11px 'Public Sans';"><span style="width:7px; height:7px; background:#B42318;"></span>HIGH</span>
+        <div class="num" style="font:800 30px 'Public Sans'; color:#B42318; line-height:1; margin-top:9px; letter-spacing:-.02em;">78</div>
+      </div>
+    </div>
+
+    <!-- CARD 2 Ananya watch minor -->
+    <div style="background:#fff; border-radius:6px; box-shadow:0 1px 3px rgba(20,30,45,.09); border:1px solid #E7ECF0; padding:15px 17px 15px 0; display:grid; grid-template-columns:5px 1fr auto; gap:15px; overflow:hidden;">
+      <span style="background:#97600A; border-radius:0 3px 3px 0;"></span>
+      <div>
+        <div style="display:flex; align-items:center; gap:9px; flex-wrap:wrap;">
+          <span style="font:700 15px 'Public Sans'; color:#16202C;">Ananya Nair</span>
+          <span class="num" style="font:600 12px 'Public Sans'; color:#828D9B;">21CSE077</span>
+          <span style="padding:2px 7px; border-radius:5px; background:#E3F1F2; color:#0E7C86; font:700 10px 'Public Sans'; letter-spacing:.03em;">MINOR</span>
+        </div>
+        <div style="margin-top:11px;">
+          <div>
+            <div style="display:flex; justify-content:space-between; font:500 12.5px 'Public Sans'; color:#3A4654; margin-bottom:4px;"><span><span style="color:#0E7C86; font-weight:700;">●</span> Attendance below threshold</span><span class="num" style="font-weight:700; color:#16202C;">71% / 75%</span></div>
+            <div style="position:relative; height:5px; background:#EEF1F4; border-radius:3px;"><span style="position:absolute; left:0; top:0; bottom:0; width:71%; background:#97600A; border-radius:3px;"></span><span style="position:absolute; left:75%; top:-2px; bottom:-2px; width:2px; background:#3A4654;"></span></div>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:right; min-width:78px;">
+        <span style="display:inline-flex; align-items:center; gap:5px; padding:3px 8px; border-radius:5px; background:#FAF0DC; color:#8A5800; font:700 11px 'Public Sans';"><span style="width:7px; height:7px; background:#97600A; transform:rotate(45deg);"></span>WATCH</span>
+        <div class="num" style="font:800 30px 'Public Sans'; color:#8A5800; line-height:1; margin-top:9px; letter-spacing:-.02em;">40</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 360 score header B -->
+  <div style="background:#fff; border-radius:6px; box-shadow:0 1px 3px rgba(20,30,45,.09); border:1px solid #E7ECF0; margin-top:14px; padding:18px 20px;">
+    <div style="font:700 10px 'Public Sans'; letter-spacing:.09em; color:#9AA4B1; margin-bottom:12px;">STUDENT 360 · SCORE HEADER</div>
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <div style="display:flex; align-items:flex-end; gap:5px;">
+        <div class="num" style="font:800 52px 'Public Sans'; color:#B42318; line-height:.85; letter-spacing:-.03em;">78</div>
+        <div class="num" style="font:600 16px 'Public Sans'; color:#9AA4B1; padding-bottom:6px;">/100</div>
+      </div>
+      <span style="display:inline-flex; align-items:center; gap:6px; padding:4px 11px; border-radius:6px; background:#FBEAE8; color:#B42318; font:700 12px 'Public Sans';"><span style="width:8px; height:8px; background:#B42318;"></span>HIGH RISK</span>
+    </div>
+    <div style="margin-top:18px;">
+      <div style="position:relative; height:10px; border-radius:5px; display:flex; overflow:hidden;">
+        <span style="flex:25; background:#E7F4EC;"></span><span style="flex:25; background:#FAF0DC;"></span><span style="flex:50; background:#FBEAE8;"></span>
+        <span style="position:absolute; left:calc(78% - 6px); top:-2px; width:12px; height:14px; border-radius:3px; background:#fff; border:2.5px solid #B42318;"></span>
+      </div>
+      <div class="num" style="display:flex; justify-content:space-between; font:600 10px 'Public Sans'; color:#9AA4B1; margin-top:7px;"><span>low</span><span>watch 25</span><span>high 50</span><span>100</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ FRAME C — "Institutional report" : warm-neutral surface, deep blue, boxed evidence chips ============ -->
+<div style="position:absolute; left:1340px; top:80px; width:560px;">
+  <div data-drags-parent="1" style="font:600 13px 'Public Sans'; letter-spacing:.04em; color:#46413A; margin-bottom:14px; display:flex; align-items:center; gap:10px;">
+    <span style="display:inline-flex; width:22px; height:22px; border-radius:5px; background:#234B8F; color:#fff; align-items:center; justify-content:center; font:700 12px 'Public Sans';">C</span>
+    INSTITUTIONAL REPORT · warm neutral · boxed evidence
+  </div>
+  <div style="background:#FCFBF9; border-radius:3px; box-shadow:0 1px 3px rgba(40,34,24,.10); border:1px solid #E8E4DD; overflow:hidden;">
+    <div style="padding:16px 22px 13px; border-bottom:2px solid #2A2620;">
+      <div style="font:700 16px 'Public Sans'; color:#221F19; letter-spacing:-.01em;">At-risk students</div>
+      <div style="font:500 12px 'Public Sans'; color:#776F62; margin-top:2px;">Showing watch + high · ranked by score</div>
+    </div>
+
+    <!-- ROW 1 Aarav -->
+    <div style="padding:17px 22px; border-bottom:1px solid #ECE8E1; display:flex; gap:18px; align-items:flex-start;">
+      <div style="text-align:center; min-width:46px;">
+        <div class="num" style="font:800 30px 'Public Sans'; color:#221F19; line-height:.9; letter-spacing:-.02em;">78</div>
+        <span style="display:inline-block; margin-top:6px; font:700 9px 'Public Sans'; letter-spacing:.08em; color:#B42318;">▰ HIGH</span>
+      </div>
+      <div style="width:1px; align-self:stretch; background:#ECE8E1;"></div>
+      <div style="flex:1;">
+        <div style="display:flex; align-items:center; gap:9px;">
+          <span style="font:700 15px 'Public Sans'; color:#221F19;">Aarav Sharma</span>
+          <span class="num" style="font:600 12px 'Public Sans'; color:#8C8475;">21CSE045 · CSE</span>
+        </div>
+        <div style="margin-top:10px; display:flex; flex-direction:column; gap:7px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <span style="font:500 13px 'Public Sans'; color:#3D382F;"><span style="font:700 9px 'Public Sans'; letter-spacing:.06em; color:#A89E8C;">ATTENDANCE</span><br>Attendance below threshold</span>
+            <span class="num" style="font:700 12px 'Public Sans'; color:#221F19; border:1px solid #D8D2C7; border-radius:4px; padding:3px 7px; background:#fff; white-space:nowrap;">61 / 75</span>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <span style="font:500 13px 'Public Sans'; color:#3D382F;"><span style="font:700 9px 'Public Sans'; letter-spacing:.06em; color:#A89E8C;">ACADEMIC</span><br>Internals below pass mark</span>
+            <span class="num" style="font:700 12px 'Public Sans'; color:#221F19; border:1px solid #D8D2C7; border-radius:4px; padding:3px 7px; background:#fff; white-space:nowrap;">2 below 40</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW 2 Ananya -->
+    <div style="padding:17px 22px; display:flex; gap:18px; align-items:flex-start;">
+      <div style="text-align:center; min-width:46px;">
+        <div class="num" style="font:800 30px 'Public Sans'; color:#221F19; line-height:.9; letter-spacing:-.02em;">40</div>
+        <span style="display:inline-block; margin-top:6px; font:700 9px 'Public Sans'; letter-spacing:.08em; color:#8A5800;">◆ WATCH</span>
+      </div>
+      <div style="width:1px; align-self:stretch; background:#ECE8E1;"></div>
+      <div style="flex:1;">
+        <div style="display:flex; align-items:center; gap:9px; flex-wrap:wrap;">
+          <span style="font:700 15px 'Public Sans'; color:#221F19;">Ananya Nair</span>
+          <span class="num" style="font:600 12px 'Public Sans'; color:#8C8475;">21CSE077 · CSE</span>
+          <span style="padding:2px 7px; border-radius:4px; border:1px solid #C9D2E2; color:#234B8F; font:700 9px 'Public Sans'; letter-spacing:.05em;">MINOR · CONSENT REQ.</span>
+        </div>
+        <div style="margin-top:10px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <span style="font:500 13px 'Public Sans'; color:#3D382F;"><span style="font:700 9px 'Public Sans'; letter-spacing:.06em; color:#A89E8C;">ATTENDANCE</span><br>Attendance below threshold</span>
+            <span class="num" style="font:700 12px 'Public Sans'; color:#221F19; border:1px solid #D8D2C7; border-radius:4px; padding:3px 7px; background:#fff; white-space:nowrap;">71 / 75</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 360 score header C -->
+  <div style="background:#FCFBF9; border-radius:3px; box-shadow:0 1px 3px rgba(40,34,24,.10); border:1px solid #E8E4DD; margin-top:18px; padding:18px 22px;">
+    <div style="font:700 10px 'Public Sans'; letter-spacing:.09em; color:#A89E8C; margin-bottom:14px;">STUDENT 360 · SCORE HEADER</div>
+    <div style="display:flex; align-items:flex-end; justify-content:space-between;">
+      <div>
+        <span style="display:inline-block; font:700 11px 'Public Sans'; letter-spacing:.06em; color:#B42318; margin-bottom:4px;">▰ HIGH RISK</span>
+        <div style="display:flex; align-items:flex-end; gap:6px;">
+          <div class="num" style="font:800 52px 'Public Sans'; color:#221F19; line-height:.82; letter-spacing:-.03em;">78</div>
+          <div class="num" style="font:600 15px 'Public Sans'; color:#A89E8C; padding-bottom:6px;">/ 100</div>
+        </div>
+      </div>
+      <div style="font:500 12px 'Public Sans'; color:#776F62; text-align:right;">Updated<br>2 hrs ago</div>
+    </div>
+    <div style="margin-top:16px;">
+      <div style="position:relative; height:3px; background:#E0DBD1;">
+        <span style="position:absolute; left:0; width:25%; top:0; bottom:0; background:#1F7A4D;"></span>
+        <span style="position:absolute; left:25%; width:25%; top:0; bottom:0; background:#97600A;"></span>
+        <span style="position:absolute; left:50%; width:50%; top:0; bottom:0; background:#B42318;"></span>
+        <span style="position:absolute; left:78%; top:-5px; width:13px; height:13px; border-radius:50%; background:#221F19; transform:translateX(-50%); border:2.5px solid #FCFBF9;"></span>
+      </div>
+      <div class="num" style="display:flex; justify-content:space-between; font:600 10px 'Public Sans'; color:#A89E8C; margin-top:8px;"><span>LOW</span><span>WATCH 25</span><span>HIGH 50</span><span>100</span></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

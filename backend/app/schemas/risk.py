@@ -73,6 +73,37 @@ class RiskAssessmentResponse(BaseModel):
     findings: list[RiskFindingResponse]
 
 
+class RiskSummaryByTier(BaseModel):
+    high: int
+    watch: int
+    low: int
+
+
+class RiskSummaryByType(BaseModel):
+    attendance: int
+    academic: int
+    fee: int
+
+
+class RiskSummaryResponse(BaseModel):
+    total_assessed: int
+    by_tier: RiskSummaryByTier
+    by_risk_type: RiskSummaryByType
+    generated_at: datetime
+
+
+class DepartmentSummary(BaseModel):
+    department: str
+    total: int
+    high: int
+    watch: int
+    low: int
+
+
+class RiskSummaryByDepartmentResponse(BaseModel):
+    departments: list[DepartmentSummary]
+
+
 class AtRiskStudentResponse(BaseModel):
     student_id: UUID
     canonical_roll_no: str
